@@ -10,3 +10,10 @@ dependencies = [
     "pyinstaller>=6.16.0",
     "pyyaml>=6.0.3",
 ]
+
+[project.scripts]
+ted-dev = "ted.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
