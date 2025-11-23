@@ -42,6 +42,14 @@ def find_todo_file(todo_id: str):
     return from_md_file(target_file), target_file
 
 
+def parse_project_id(proj_str: str | None) -> str | None:
+    if proj_str is None:
+        return None
+    proj_str = proj_str.strip()
+    proj_str = proj_str.replace("[[", "").replace("]]", "")
+    return proj_str
+
+
 class Task(BaseModel):
     done: bool
     description: str
@@ -68,18 +76,36 @@ def tasks2md(key: str, lst: list[Task]):
     return f"# {key.capitalize()} \n{task_string}\n"
 
 
-class TodoData(BaseModel):
+class Properties(BaseModel):
+    created: str
     id: str
+    completed: str | None = None
+    project_id: str | None = None
+    tags: list[str] = []
+    others: dict = {}
+
+    def __str__(self):
+        props = {
+            "created": self.created,
+            "id": self.id,
+            "completed": self.completed,
+            "project_id": f"[[{self.project_id}]]" if self.project_id else None,
+            "tags": self.tags,
+        }
+        props.update(self.others)
+        return f"---\n{yaml.dump(props)}---\n"
+
+
+class TodoData(BaseModel):
     name: str
     goal: str
     tasks: list[Task] = []
-    properties: dict = {}
+    properties: Properties
     info: list[str] = []
 
     def __str__(self) -> str:
         _str = ""
-        if self.properties:
-            _str += properties2md(self.properties)
+        _str += str(self.properties)
         _str += string2md(self.name, self.goal)
         _str += tasks2md("tasks", self.tasks)
         _str += list2md("info", self.info)
@@ -87,13 +113,16 @@ class TodoData(BaseModel):
 
     @property
     def filename(self):
-        return f"{self.id}_{self.name[:15].replace(' ', '_')}.md"
+        return f"{self.id}.md"
+
+    @property
+    def id(self):
+        return self.properties.id
 
     def write(self, vault_dir: str):
         file_dir = os.path.join(vault_dir, self.filename)
-        self.properties["id"] = self.id
         with open(file_dir, "w", encoding="utf8") as f:
-            f.write(self.__str__())
+            f.write(str(self))
 
     def status(self) -> str:
         status = "✅" if all([t.done for t in self.tasks]) else "❌"
@@ -119,15 +148,41 @@ class TodoData(BaseModel):
         self.add_info(f"{timestamp} | Completed: {desc}")
 
 
+class ProjectData(BaseModel):
+    id: str
+    name: str
+    properties: Properties
+    description: str = ""
+    info: list[str] = []
+
+    def __str__(self) -> str:
+        _str = ""
+        _str += str(self.properties)
+        _str += string2md(self.name, self.description)
+        _str += list2md("info", self.info)
+        return _str
+
+    @property
+    def filename(self):
+        return f"{self.id}.md"
+
+    def write(self, vault_dir: str):
+        file_dir = os.path.join(vault_dir, self.filename)
+        with open(file_dir, "w", encoding="utf8") as f:
+            f.write(self.__str__())
+
+
 def from_md_file(filename: str):
     with open(filename, "r") as f:
         text = f.read()
-    _id = os.path.basename(filename)[:6]
+
     parts = text.split("# ")
+
     if parts[0] != "":
         properties = yaml.safe_load(parts[0].split("---\n")[1])
     else:
-        properties = {}
+        raise ValueError("Invalid todo file format: missing properties section.")
+    properties["project_id"] = parse_project_id(properties.get("project_id"))
     name, goal = parts[1].split("\n")[:2]
 
     tasks = [str2todo(p) for p in parts[2].split("\n") if p.startswith("- [")]
@@ -136,8 +191,9 @@ def from_md_file(filename: str):
         info = []
     else:
         info = [p[2:] for p in parts[3].split("\n") if p.startswith("- ")]
+
+    properties = Properties(**properties)
     return TodoData(
-        id=_id,
         name=name,
         goal=goal,
         tasks=tasks,
@@ -149,8 +205,7 @@ def from_md_file(filename: str):
 VAULT_DIR = os.path.expanduser("~/.ted")
 TODO_DIR = os.path.join(VAULT_DIR, "todos")
 DONE_DIR = os.path.join(VAULT_DIR, "done")
-os.makedirs(TODO_DIR, exist_ok=True)
-os.makedirs(DONE_DIR, exist_ok=True)
+PROJECTS_DIR = os.path.join(VAULT_DIR, "projects")
 
 
 def todo_id_completion(ctx, param, incomplete):
@@ -185,18 +240,64 @@ def new():
     name = click.prompt("Enter the new name", type=str)
     goal = click.prompt("Enter passing criteria", type=str)
     next = click.prompt("Next task to do", type=str)
+    project_files = find_files(PROJECTS_DIR)
 
+    if project_files:
+        click.echo("Available project files: ")
+        for i, pf in enumerate(project_files):
+            click.echo(f"{i}. {os.path.basename(pf)}")
+        project_idx = click.prompt(
+            "Project ID (leave empty for none)", default=None, show_default=False
+        ).strip()
+    else:
+        project_idx = None
+
+    if project_idx is not None:
+        try:
+            project_idx = int(project_idx)
+            project_file = project_files[project_idx]
+            project = from_md_file(project_file)
+            project_id = project.id
+        except (ValueError, IndexError):
+            click.echo("Invalid project selection. Proceeding without a project.")
+            project_id = None
+    else:
+        project_id = None
     creation_timestamp = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
 
     files = find_files(TODO_DIR)
     last_id = max([int(os.path.basename(f)[1:6]) for f in files], default=0)
     n_files = last_id + 1
     _id = f"T{n_files:05d}"
-    properties = {"created": creation_timestamp, "id": _id}
+
+    properties = Properties(
+        created=creation_timestamp,
+        id=_id,
+        project_id=project_id if project_id else None,
+    )
 
     tasks = [Task(done=False, description=next)]
     todo = TodoData(id=_id, name=name, goal=goal, tasks=tasks, properties=properties)
     todo.write(TODO_DIR)
+
+
+@cli.command()
+def new_p():
+    name = click.prompt("Enter the new project name", type=str)
+    description = click.prompt("Enter project description", type=str)
+
+    creation_timestamp = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
+
+    files = find_files(PROJECTS_DIR)
+    last_id = max([int(os.path.basename(f)[1:6]) for f in files], default=0)
+    n_files = last_id + 1
+    _id = f"P{n_files:05d}"
+    properties = {"created": creation_timestamp, "id": _id}
+
+    project = ProjectData(
+        id=_id, name=name, description=description, properties=properties
+    )
+    project.write(PROJECTS_DIR)
 
 
 @cli.command()
@@ -265,13 +366,17 @@ def ls(show):
 @click.argument("todo_id", shell_complete=todo_id_completion)
 def done(todo_id):
     todo, target_file = find_todo_file(todo_id)
+
     if not todo:
         return
+
     if not all([t.done for t in todo.tasks]):
         click.echo(f"Todo {todo_id} is not yet complete.")
         return
-    todo.properties["completed"] = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
+
+    todo.properties.completed = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
     todo.write(DONE_DIR)
+
     os.remove(target_file)
     click.echo(f"Todo {todo_id} marked as done and moved to done directory.")
 
@@ -293,11 +398,12 @@ def init():
     """Initialize the TED vault directories."""
     os.makedirs(TODO_DIR, exist_ok=True)
     os.makedirs(DONE_DIR, exist_ok=True)
+    os.makedirs(PROJECTS_DIR, exist_ok=True)
     click.echo(f"Initialized TED vault at {VAULT_DIR}.")
 
 
 def find_files(dir):
-    return glob.glob(os.path.join(dir, "T[0-9]*.md"))
+    return glob.glob(os.path.join(dir, "[A-Z][0-9]*.md"))
 
 
 def main():
