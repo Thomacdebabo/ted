@@ -36,7 +36,7 @@ def find_todo_file(todo_id: str):
 
     if not target_file:
         click.echo(f"Todo with ID {todo_id} not found.")
-        return
+        return None, None
     else:
         click.echo(f"Found todo file: {target_file}")
     return from_md_file(target_file), target_file
@@ -193,9 +193,9 @@ def new():
     n_files = last_id + 1
     _id = f"T{n_files:05d}"
     properties = {"created": creation_timestamp, "id": _id}
-    todo = TodoData(
-        id=_id, name=name, goal=goal, tasks=[(False, next)], properties=properties
-    )
+
+    tasks = [Task(done=False, description=next)]
+    todo = TodoData(id=_id, name=name, goal=goal, tasks=tasks, properties=properties)
     todo.write(TODO_DIR)
 
 
@@ -223,7 +223,7 @@ def update(todo_id):
             return
 
         for num in sorted(chosen, reverse=True):
-            if num < 1 or num > len(todo.tasks):
+            if num < 0 or num > len(todo.tasks):
                 click.echo(f"Ignoring invalid task number: {num}")
                 continue
             todo.mark_task_done(num)
@@ -265,8 +265,9 @@ def ls(show):
 @click.argument("todo_id", shell_complete=todo_id_completion)
 def done(todo_id):
     todo, target_file = find_todo_file(todo_id)
-    print(todo)
-    if not all([t[0] for t in todo.tasks]):
+    if not todo:
+        return
+    if not all([t.done for t in todo.tasks]):
         click.echo(f"Todo {todo_id} is not yet complete.")
         return
     todo.properties["completed"] = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
