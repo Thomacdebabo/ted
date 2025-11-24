@@ -126,9 +126,9 @@ class TodoData(BaseModel):
 
     def status(self) -> str:
         status = "✅" if all([t.done for t in self.tasks]) else "❌"
-        status_string = f"{self.id}: {self.name} {status}"
+        status_string = f"{self.id}: {self.name} {status}\n"
         for i, t in enumerate(self.tasks):
-            status_string += f"\n {i}. " + t.status()
+            status_string += f" {i}. " + t.status() + "\n"
         return status_string
 
     def add_info(self, info_str: str):
@@ -229,23 +229,13 @@ def todo_id_completion(ctx, param, incomplete):
         return matches
 
 
-@click.group()
-def cli():
-    """TED - the todo buddy"""
-    pass
-
-
-@cli.command()
-def new():
-    name = click.prompt("Enter the new name", type=str)
-    goal = click.prompt("Enter passing criteria", type=str)
-    next = click.prompt("Next task to do", type=str)
+def prompt_project_selection():
     project_files = find_files(PROJECTS_DIR)
-
     if project_files:
         click.echo("Available project files: ")
         for i, pf in enumerate(project_files):
-            click.echo(f"{i}. {os.path.basename(pf)}")
+            project = from_md_file(pf)
+            click.echo(f"{i}. {os.path.basename(pf)} - {project.name}")
         project_idx = click.prompt(
             "Project ID (leave empty for none)", default=None, show_default=False
         ).strip()
@@ -263,6 +253,51 @@ def new():
             project_id = None
     else:
         project_id = None
+    return project_id
+
+
+def prompt_todo_selection():
+    todo_files = find_files(TODO_DIR)
+    if todo_files:
+        click.echo("Available todo files: ")
+        for i, tf in enumerate(todo_files):
+            click.echo(f"{i}. {os.path.basename(tf)}")
+        todo_idx = click.prompt(
+            "Todo ID (leave empty for none)", default=None, show_default=False
+        ).strip()
+    else:
+        todo_idx = None
+
+    if todo_idx is not None:
+        try:
+            todo_idx = int(todo_idx)
+            todo_file = todo_files[todo_idx]
+            todo = from_md_file(todo_file)
+            todo_id = todo.id
+        except (ValueError, IndexError):
+            click.echo("Invalid todo selection. Proceeding without a todo.")
+            todo_id = None
+            todo = None
+            todo_file = None
+    else:
+        todo_id = None
+        todo = None
+        todo_file = None
+    return todo_id, todo, todo_file
+
+
+@click.group()
+def cli():
+    """TED - the todo buddy"""
+    pass
+
+
+@cli.command()
+def new():
+    name = click.prompt("Enter the new name", type=str)
+    goal = click.prompt("Enter passing criteria", type=str)
+    next = click.prompt("Next task to do", type=str)
+    project_id = prompt_project_selection()
     creation_timestamp = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
 
     files = find_files(TODO_DIR)
@@ -301,8 +336,15 @@ def new_p():
 
 
 @cli.command()
-@click.argument("todo_id", shell_complete=todo_id_completion)
+@click.argument(
+    "todo_id", required=False, default=None, shell_complete=todo_id_completion
+)
 def update(todo_id):
+    if todo_id is None:
+        todo_id = prompt_todo_selection()[0]
+    if todo_id is None:
+        click.echo("No todo selected for update.")
+        return
     todo_tuple = find_todo_file(todo_id)
     if not todo_tuple or todo_tuple[0] is None or todo_tuple[1] is None:
         click.echo(f"Todo with ID {todo_id} not found or invalid.")
@@ -397,6 +439,17 @@ def show(todo_id):
 
 
 @cli.command()
+def status():
+    files = find_files(TODO_DIR)
+    for file in files:
+        try:
+            todo = from_md_file(file)
+            click.echo(todo.status())
+        except Exception as e:
+            click.echo(f"Error reading {file}: {e}")
+
+
+@cli.command()
 def init():
     """Initialize the TED vault directories."""
     os.makedirs(TODO_DIR, exist_ok=True)
@@ -406,7 +459,9 @@ def init():
 
 
 def find_files(dir):
-    return glob.glob(os.path.join(dir, "[A-Z][0-9]*.md"))
+    files = glob.glob(os.path.join(dir, "[A-Z][0-9]*.md"))
+    files.sort()
+    return files
 
 
 def main():

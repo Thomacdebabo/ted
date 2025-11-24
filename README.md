@@ -7,3 +7,18 @@ The idea is to have a little cli interface which allows you to create and manage
 	- **goal**: basically what the conditions are to consider it done
 	- **next step**: what the next thing you should be doing is, something that you could do
 - Dataformat is a dictionary which uses titles to define key value pairs
+
+
+# Setup
+```
+uv sync
+source .venv/bin/activate
+./install.sh
+```
+
+Dev setup:
+```
+uv pip install -e .
+
+```
+-> ted-dev
