@@ -12,7 +12,7 @@ def properties2md(props: dict):
 
 
 def string2md(key: str, string: str):
-    return f"# {key.capitalize()} \n {string} \n"
+    return f"# {key.capitalize()}\n{string}\n"
 
 
 def list2md(key: str, lst: list[str]):
@@ -21,7 +21,7 @@ def list2md(key: str, lst: list[str]):
 
 
 def str2todo(todo_str: str):
-    t = todo_str[5:]
+    t = todo_str[6:].strip()
     b = todo_str.startswith("- [x] ")
     return Task(done=b, description=t)
 
@@ -113,7 +113,7 @@ class TodoData(BaseModel):
 
     @property
     def filename(self):
-        return f"{self.id}.md"
+        return f"{self.id}_{self.name[:15].replace(' ', '_')}.md"
 
     @property
     def id(self):
@@ -121,7 +121,7 @@ class TodoData(BaseModel):
 
     def write(self, vault_dir: str):
         file_dir = os.path.join(vault_dir, self.filename)
-        with open(file_dir, "w", encoding="utf8") as f:
+        with open(file_dir, "w", encoding="utf-8") as f:
             f.write(str(self))
 
     def status(self) -> str:
@@ -195,7 +195,7 @@ def from_md_file(filename: str):
     properties = Properties(**properties)
     return TodoData(
         name=name,
-        goal=goal,
+        goal=goal.strip(),
         tasks=tasks,
         properties=properties,
         info=info,
@@ -277,7 +277,7 @@ def new():
     )
 
     tasks = [Task(done=False, description=next)]
-    todo = TodoData(id=_id, name=name, goal=goal, tasks=tasks, properties=properties)
+    todo = TodoData(name=name, goal=goal, tasks=tasks, properties=properties)
     todo.write(TODO_DIR)
 
 
@@ -292,7 +292,7 @@ def new_p():
     last_id = max([int(os.path.basename(f)[1:6]) for f in files], default=0)
     n_files = last_id + 1
     _id = f"P{n_files:05d}"
-    properties = {"created": creation_timestamp, "id": _id}
+    properties = Properties(id=_id, created=creation_timestamp)
 
     project = ProjectData(
         id=_id, name=name, description=description, properties=properties
@@ -304,8 +304,8 @@ def new_p():
 @click.argument("todo_id", shell_complete=todo_id_completion)
 def update(todo_id):
     todo_tuple = find_todo_file(todo_id)
-    if not todo_tuple:
-        click.echo(f"Todo with ID {todo_id} not found.")
+    if not todo_tuple or todo_tuple[0] is None or todo_tuple[1] is None:
+        click.echo(f"Todo with ID {todo_id} not found or invalid.")
         return
     todo, target_file = todo_tuple
 
@@ -341,8 +341,7 @@ def update(todo_id):
     if extra_info:
         todo.info.append(extra_info)
 
-    with open(target_file, "w", encoding="utf8") as f:
-        f.write(str(todo))
+    todo.write(TODO_DIR)
 
     click.echo(f"Updated todo {todo.id} and wrote changes to {target_file}")
 
@@ -376,6 +375,10 @@ def done(todo_id):
 
     todo.properties.completed = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
     todo.write(DONE_DIR)
+
+    if target_file is None:
+        click.echo(f"Error: target file for todo {todo_id} not found.")
+        return
 
     os.remove(target_file)
     click.echo(f"Todo {todo_id} marked as done and moved to done directory.")
