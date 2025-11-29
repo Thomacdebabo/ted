@@ -1,0 +1,11 @@
+{
+  "workspace:new-tab": [],
+  "insert-current-time": [
+    {
+      "modifiers": [
+        "Mod"
+      ],
+      "key": "T"
+    }
+  ]
+}
