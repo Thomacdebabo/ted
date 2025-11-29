@@ -6,7 +6,7 @@ import click
 import yaml
 from pydantic import BaseModel
 
-from ted.types import Properties, TodoData, ProjectData, Reference, Task
+from ted.types import Properties, TodoData, ProjectData, ReferenceData, Task, Reference, ReferenceType
 
 
 def find_files(dir):
@@ -75,7 +75,7 @@ def ref_from_md_file(filename: str):
 
     properties = Properties(**properties)
     filename = os.path.basename(filename)
-    return Reference(
+    return ReferenceData(
         name=name,
         ref=ref.strip(),
         properties=properties,

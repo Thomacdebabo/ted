@@ -6,7 +6,16 @@ import click
 import yaml
 from pydantic import BaseModel
 
-from ted.types import Properties, TodoData, ProjectData, Reference, Task
+from ted.types import (
+    Properties,
+    TodoData,
+    ProjectData,
+    ReferenceData,
+    Task,
+    Reference,
+    ReferenceType,
+    create_reference,
+)
 from ted.utils import (
     from_md_file,
     get_next_id,
@@ -33,15 +42,30 @@ def cli():
 
 @cli.command()
 def new():
+    """Create a new todo, project, or reference."""
+    choice = click.prompt(
+        "What would you like to create? (t)odo, (p)roject, (r)eference",
+        type=click.Choice(["t", "p", "r"]),
+    )
+    choices = {"t": new_t, "p": new_p, "r": new_ref}
+    ctx = click.get_current_context()
+    ctx.invoke(choices[choice])
+
+
+@cli.command()
+def new_t():
     name = click.prompt("Enter the new name", type=str)
     goal = click.prompt("Enter passing criteria", type=str)
     next = click.prompt("Next task to do", type=str)
-    project_id = prompt_project_selection(PROJECTS_DIR)
-    creation_timestamp = new_timestamp()
 
+    project_id = prompt_project_selection(PROJECTS_DIR)
+
+    creation_timestamp = new_timestamp()
     next_id = get_next_id(TODO_DIR)
+
     _id = f"T{next_id:05d}"
     filename = f"{_id}_{name[:15].lower().replace(' ', '_')}.md"
+
     properties = Properties(
         created=creation_timestamp,
         id=_id,
@@ -63,6 +87,7 @@ def new_p():
     creation_timestamp = new_timestamp()
     next_id = get_next_id(PROJECTS_DIR)
     _id = f"P{next_id:05d}"
+
     properties = Properties(id=_id, created=creation_timestamp)
     filename = _id + ".md"
     project = ProjectData(
@@ -77,7 +102,17 @@ def new_p():
 
 @cli.command()
 def new_ref():
-    ref = click.prompt("Enter the reference link", type=str)
+    type_str = click.prompt(
+        "Enter reference type: ",
+        type=click.Choice([t.value for t in ReferenceType]),
+    )
+    try:
+        ref_type = ReferenceType(type_str)
+    except ValueError:
+        click.echo(f"Invalid reference type: {type_str}")
+        return
+    ref_content = click.prompt("Enter the reference content", type=str)
+    ref = create_reference(type=ref_type, content=ref_content)
     todo_id, todo, target_file = prompt_todo_selection(TODO_DIR)
     if not todo:
         click.echo("No valid todo selected for reference.")
@@ -93,7 +128,7 @@ def new_ref():
         id=_id,
     )
 
-    reference = Reference(
+    reference = ReferenceData(
         ref=ref,
         task=task,
         properties=properties,

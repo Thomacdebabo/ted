@@ -5,6 +5,7 @@ from datetime import datetime
 import click
 import yaml
 from pydantic import BaseModel
+from enum import Enum
 
 
 def new_timestamp():
@@ -73,9 +74,38 @@ class Properties(BaseModel):
         return f"---\n{yaml.dump(props)}---\n"
 
 
+class ReferenceType(str, Enum):
+    LINK = "l"
+    NOTEBOOK = "n"
+    FILE = "f"
+
+
+def create_reference(type: ReferenceType, content: str) -> "Reference":
+    if type == ReferenceType.LINK:
+        if not content.startswith("http"):
+            content = "https://" + content
+
+    return Reference(type=type, content=content)
+
+
 class Reference(BaseModel):
+    type: ReferenceType
+    content: str
+
+    def __str__(self) -> str:
+        if self.type == ReferenceType.LINK:
+            return f"[link]({self.content})"
+        if self.type == ReferenceType.NOTEBOOK:
+            return f"Notebook: {self.content}"
+        if self.type == ReferenceType.FILE:
+            return f"File: [[{self.content}]]"
+        else:
+            return self.content
+
+
+class ReferenceData(BaseModel):
     properties: Properties
-    ref: str
+    ref: Reference
     task: str
     filename: str
     name: str = "Reference"
@@ -84,7 +114,7 @@ class Reference(BaseModel):
     def __str__(self) -> str:
         _str = ""
         _str += str(self.properties)
-        _str += string2md(self.name, self.ref)
+        _str += string2md(self.name, str(self.ref))
         _str += string2md("Task", f"[[{self.task}]]")
         _str += string2md("TLDR", self.tldr)
         return _str
