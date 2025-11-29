@@ -115,8 +115,10 @@ def new_ref():
             return
         ref_content = os.path.basename(ref_content)
         shutil.copy(ref_content, os.path.join(FILES_DIR, ref_content))
-    else:
+    elif ref_type == ReferenceType.NOTEBOOK:
         ref_content = click.prompt("Enter the reference content", type=str)
+        date = datetime.now().strftime("%Y-%m-%d")
+        ref_content = f"Notebook: **{date}** {ref_content}"
     ref = create_reference(type=ref_type, content=ref_content)
     todo_id, todo, target_file = prompt_todo_selection(TODO_DIR)
     if not todo:
@@ -180,13 +182,13 @@ def update(todo_id):
     if todo_id is None:
         click.echo("No todo selected for update.")
         return
-    
+
     todo_tuple = find_todo_file(todo_id, TODO_DIR)
 
     if not todo_tuple or todo_tuple[0] is None or todo_tuple[1] is None:
         click.echo(f"Todo with ID {todo_id} not found or invalid.")
         return
-    
+
     todo, target_file = todo_tuple
 
     click.echo(todo.status(verbose=True))
@@ -259,7 +261,7 @@ def done(todo_id):
     if target_file is None:
         click.echo(f"Error: target file for todo {todo_id} not found.")
         return
-    
+
     todo.write(DONE_DIR)
 
     os.remove(target_file)
