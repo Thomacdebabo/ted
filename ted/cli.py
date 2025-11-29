@@ -7,6 +7,10 @@ import yaml
 from pydantic import BaseModel
 
 
+def new_timestamp():
+    return datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
+
+
 def properties2md(props: dict):
     return f"---\n{yaml.dump(props)}---\n"
 
@@ -99,6 +103,28 @@ class Properties(BaseModel):
         return f"---\n{yaml.dump(props)}---\n"
 
 
+class Reference(BaseModel):
+    properties: Properties
+    ref: str
+    task: str
+    filename: str
+    name: str = "Reference"
+    tldr: str = ""
+
+    def __str__(self) -> str:
+        _str = ""
+        _str += str(self.properties)
+        _str += string2md(self.name, self.ref)
+        _str += string2md("Task", f"[[{self.task}]]")
+        _str += string2md("TLDR", self.tldr)
+        return _str
+
+    def write(self, vault_dir: str):
+        file_dir = os.path.join(vault_dir, self.filename)
+        with open(file_dir, "w", encoding="utf-8") as f:
+            f.write(str(self))
+
+
 class TodoData(BaseModel):
     name: str
     goal: str
@@ -143,7 +169,7 @@ class TodoData(BaseModel):
         else:
             raise IndexError("Task index out of range.")
 
-        timestamp = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
+        timestamp = new_timestamp()
         desc = self.tasks[task_index].description
         self.add_info(f"{timestamp} | Completed: {desc}")
 
@@ -169,6 +195,41 @@ class ProjectData(BaseModel):
             f.write(self.__str__())
 
 
+def ref_from_md_file(filename: str):
+    with open(filename, "r") as f:
+        text = f.read()
+
+    parts = text.split("# ")
+
+    if parts[0] != "":
+        properties = yaml.safe_load(parts[0].split("---\n")[1])
+    else:
+        raise ValueError("Invalid todo file format: missing properties section.")
+    if "project_id" in properties:
+        properties["project_id"] = parse_project_id(properties.get("project_id"))
+
+    if "blocked_by" in properties and properties["blocked_by"] is not None:
+        properties["blocked_by"] = [
+            parse_project_id(item) for item in properties["blocked_by"]
+        ]
+    name, ref = parts[1].split("\n")[:2]
+    task = parts[2].split("\n")[1].strip()
+
+    task_id = parse_project_id(task)
+    if task_id is None:
+        raise ValueError("Invalid reference file format: missing task reference.")
+
+    properties = Properties(**properties)
+    filename = os.path.basename(filename)
+    return Reference(
+        name=name,
+        ref=ref.strip(),
+        properties=properties,
+        filename=filename,
+        task=task_id,
+    )
+
+
 def from_md_file(filename: str):
     with open(filename, "r") as f:
         text = f.read()
@@ -179,7 +240,7 @@ def from_md_file(filename: str):
         properties = yaml.safe_load(parts[0].split("---\n")[1])
     else:
         raise ValueError("Invalid todo file format: missing properties section.")
-    
+
     properties["project_id"] = parse_project_id(properties.get("project_id"))
 
     if "blocked_by" in properties and properties["blocked_by"] is not None:
@@ -209,6 +270,7 @@ def from_md_file(filename: str):
 
 VAULT_DIR = os.path.expanduser("~/.ted")
 TODO_DIR = os.path.join(VAULT_DIR, "todos")
+REF_DIR = os.path.join(VAULT_DIR, "ref")
 DONE_DIR = os.path.join(VAULT_DIR, "done")
 PROJECTS_DIR = os.path.join(VAULT_DIR, "projects")
 
@@ -291,6 +353,12 @@ def prompt_todo_selection():
     return todo_id, todo, todo_file
 
 
+def get_next_id(file_dir: str) -> int:
+    files = find_files(file_dir)
+    last_id = max([int(os.path.basename(f)[1:6]) for f in files], default=0)
+    return last_id + 1
+
+
 @click.group()
 def cli():
     """TED - the todo buddy"""
@@ -303,12 +371,10 @@ def new():
     goal = click.prompt("Enter passing criteria", type=str)
     next = click.prompt("Next task to do", type=str)
     project_id = prompt_project_selection()
-    creation_timestamp = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
+    creation_timestamp = new_timestamp()
 
-    files = find_files(TODO_DIR)
-    last_id = max([int(os.path.basename(f)[1:6]) for f in files], default=0)
-    n_files = last_id + 1
-    _id = f"T{n_files:05d}"
+    next_id = get_next_id(TODO_DIR)
+    _id = f"T{next_id:05d}"
     filename = f"{_id}_{name[:15].lower().replace(' ', '_')}.md"
     properties = Properties(
         created=creation_timestamp,
@@ -328,12 +394,9 @@ def new_p():
     name = click.prompt("Enter the new project name", type=str)
     description = click.prompt("Enter project description", type=str)
 
-    creation_timestamp = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
-
-    files = find_files(PROJECTS_DIR)
-    last_id = max([int(os.path.basename(f)[1:6]) for f in files], default=0)
-    n_files = last_id + 1
-    _id = f"P{n_files:05d}"
+    creation_timestamp = new_timestamp()
+    next_id = get_next_id(PROJECTS_DIR)
+    _id = f"P{next_id:05d}"
     properties = Properties(id=_id, created=creation_timestamp)
     filename = _id + ".md"
     project = ProjectData(
@@ -344,6 +407,34 @@ def new_p():
         filename=filename,
     )
     project.write(PROJECTS_DIR)
+
+
+@cli.command()
+def new_ref():
+    ref = click.prompt("Enter the reference link", type=str)
+    todo_id, todo, target_file = prompt_todo_selection()
+    if not todo:
+        click.echo("No valid todo selected for reference.")
+        return
+    tldr = click.prompt("Enter TLDR for the reference", type=str, default="")
+    task = todo.filename
+    next_id = get_next_id(REF_DIR)
+    _id = f"R{next_id:05d}"
+    filename = f"{_id}.md"
+    creation_timestamp = new_timestamp()
+    properties = Properties(
+        created=creation_timestamp,
+        id=_id,
+    )
+
+    reference = Reference(
+        ref=ref,
+        task=task,
+        properties=properties,
+        filename=filename,
+        tldr=tldr,
+    )
+    reference.write(REF_DIR)
 
 
 @cli.command()
@@ -450,7 +541,7 @@ def done(todo_id):
         click.echo(f"Todo {todo_id} is not yet complete.")
         return
 
-    todo.properties.completed = datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
+    todo.properties.completed = new_timestamp()
     todo.write(DONE_DIR)
 
     if target_file is None:
@@ -490,6 +581,7 @@ def init():
     os.makedirs(TODO_DIR, exist_ok=True)
     os.makedirs(DONE_DIR, exist_ok=True)
     os.makedirs(PROJECTS_DIR, exist_ok=True)
+    os.makedirs(REF_DIR, exist_ok=True)
     click.echo(f"Initialized TED vault at {VAULT_DIR}.")
 
 
