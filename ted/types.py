@@ -8,6 +8,22 @@ from pydantic import BaseModel
 from enum import Enum
 
 
+from ted.config import VAULT_DIR, TODO_DIR, REF_DIR, DONE_DIR, PROJECTS_DIR, FILES_DIR
+
+
+class ReferenceType(str, Enum):
+    LINK = "l"
+    NOTEBOOK = "n"
+    FILE = "f"
+
+
+class StatusSymbols(str, Enum):
+    DONE = "✅"
+    NOT_DONE = "❌"
+    BLOCKED = "⛔"
+    WARNING = "⚠️"
+
+
 def new_timestamp():
     return datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
 
@@ -36,7 +52,7 @@ class Task(BaseModel):
             return f"- [ ] {self.description}"
 
     def status(self) -> str:
-        status = "✅" if self.done else "❌"
+        status = StatusSymbols.DONE.value if self.done else StatusSymbols.NOT_DONE.value
         return status + f" {self.description}"
 
     def mark_done(self):
@@ -72,12 +88,6 @@ class Properties(BaseModel):
             props["blocked_by"] = [f"[[{item}]]" for item in self.blocked_by]
         props.update(self.others)
         return f"---\n{yaml.dump(props)}---\n"
-
-
-class ReferenceType(str, Enum):
-    LINK = "l"
-    NOTEBOOK = "n"
-    FILE = "f"
 
 
 def create_reference(type: ReferenceType, content: str) -> "Reference":
@@ -145,14 +155,36 @@ class TodoData(BaseModel):
     def id(self):
         return self.properties.id
 
+    def is_completed(self) -> bool:
+        return all([t.done for t in self.tasks])
+
     def write(self, vault_dir: str):
         file_dir = os.path.join(vault_dir, self.filename)
         with open(file_dir, "w", encoding="utf-8") as f:
             f.write(str(self))
 
-    def status(self) -> str:
-        status = "✅" if all([t.done for t in self.tasks]) else "❌"
-        status_string = f"{self.id}: {self.name} {status}\n"
+    def _status(self) -> StatusSymbols:
+        if self.properties.blocked_by is not None:
+            for t in self.properties.blocked_by:
+                if os.path.exists(os.path.join(TODO_DIR, t)) is False:
+                    continue
+                status = from_md_file(os.path.join(TODO_DIR, t))
+                if status._status() != StatusSymbols.DONE:
+                    return StatusSymbols.BLOCKED
+
+        if self.is_completed():
+            return StatusSymbols.DONE
+        else:
+            return StatusSymbols.NOT_DONE
+
+    def status(self, verbose=False) -> str:
+        status = self._status().value
+
+        status_string = f"{self.id}: {self.name} {status}"
+
+        if not verbose:
+            return status_string
+        status_string += "\nTasks:\n"
         for i, t in enumerate(self.tasks):
             status_string += f" {i}. " + t.status() + "\n"
         return status_string
@@ -193,3 +225,101 @@ class ProjectData(BaseModel):
         file_dir = os.path.join(vault_dir, self.filename)
         with open(file_dir, "w", encoding="utf8") as f:
             f.write(self.__str__())
+
+
+def parse_project_id(proj_str: str | None) -> str | None:
+    if proj_str is None:
+        return None
+    proj_str = proj_str.strip()
+    proj_str = proj_str.replace("[[", "").replace("]]", "")
+    return proj_str
+
+
+def str2todo(todo_str: str):
+    t = todo_str[6:].strip()
+    b = todo_str.startswith("- [x] ")
+    return Task(done=b, description=t)
+
+
+def from_md_file(filename: str):
+    with open(filename, "r") as f:
+        text = f.read()
+
+    parts = text.split("# ")
+
+    if parts[0] != "":
+        properties = yaml.safe_load(parts[0].split("---\n")[1])
+    else:
+        raise ValueError("Invalid todo file format: missing properties section.")
+
+    properties["project_id"] = parse_project_id(properties.get("project_id"))
+
+    if "blocked_by" in properties and properties["blocked_by"] is not None:
+        properties["blocked_by"] = [
+            parse_project_id(item) for item in properties["blocked_by"]
+        ]
+    name, goal = parts[1].split("\n")[:2]
+
+    tasks = [str2todo(p) for p in parts[2].split("\n") if p.startswith("- [")]
+
+    if len(parts) < 4:
+        info = []
+    else:
+        info = [p[2:] for p in parts[3].split("\n") if p.startswith("- ")]
+
+    properties = Properties(**properties)
+    filename = os.path.basename(filename)
+    return TodoData(
+        name=name,
+        goal=goal.strip(),
+        tasks=tasks,
+        properties=properties,
+        info=info,
+        filename=filename,
+    )
+
+
+def ref_from_md_file(filename: str):
+    with open(filename, "r") as f:
+        text = f.read()
+
+    parts = text.split("# ")
+
+    if parts[0] != "":
+        properties = yaml.safe_load(parts[0].split("---\n")[1])
+    else:
+        raise ValueError("Invalid todo file format: missing properties section.")
+    if "project_id" in properties:
+        properties["project_id"] = parse_project_id(properties.get("project_id"))
+
+    if "blocked_by" in properties and properties["blocked_by"] is not None:
+        properties["blocked_by"] = [
+            parse_project_id(item) for item in properties["blocked_by"]
+        ]
+    name, ref = parts[1].split("\n")[:2]
+    if ref.startswith("[link]("):
+        ref_content = ref[len("[link](") : -1]
+        ref_obj = Reference(type=ReferenceType.LINK, content=ref_content)
+    elif ref.startswith("Notebook: "):
+        ref_content = ref[len("Notebook: ") :]
+        ref_obj = Reference(type=ReferenceType.NOTEBOOK, content=ref_content)
+    elif ref.startswith("File: [[") and ref.endswith("]]"):
+        ref_content = ref[len("File: [[") : -2]
+        ref_obj = Reference(type=ReferenceType.FILE, content=ref_content)
+    else:
+        raise ValueError("Invalid reference file format: unknown reference type.")
+    task = parts[2].split("\n")[1].strip()
+
+    task_id = parse_project_id(task)
+    if task_id is None:
+        raise ValueError("Invalid reference file format: missing task reference.")
+
+    properties = Properties(**properties)
+    filename = os.path.basename(filename)
+    return ReferenceData(
+        name=name,
+        ref=ref_obj,
+        properties=properties,
+        filename=filename,
+        task=task_id,
+    )

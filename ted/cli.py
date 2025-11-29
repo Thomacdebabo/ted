@@ -1,13 +1,14 @@
 import glob
 import os
 from datetime import datetime
-
+import shutil
 import click
 import yaml
 from pydantic import BaseModel
-
+from ted.config import VAULT_DIR, TODO_DIR, REF_DIR, DONE_DIR, PROJECTS_DIR, FILES_DIR
 from ted.types import (
     Properties,
+    StatusSymbols,
     TodoData,
     ProjectData,
     ReferenceData,
@@ -15,9 +16,9 @@ from ted.types import (
     Reference,
     ReferenceType,
     create_reference,
+    from_md_file,
 )
 from ted.utils import (
-    from_md_file,
     get_next_id,
     prompt_todo_selection,
     prompt_project_selection,
@@ -25,13 +26,6 @@ from ted.utils import (
     find_todo_file,
     find_files,
 )
-
-
-VAULT_DIR = os.path.expanduser("~/.ted")
-TODO_DIR = os.path.join(VAULT_DIR, "todos")
-REF_DIR = os.path.join(VAULT_DIR, "ref")
-DONE_DIR = os.path.join(VAULT_DIR, "done")
-PROJECTS_DIR = os.path.join(VAULT_DIR, "projects")
 
 
 @click.group()
@@ -111,7 +105,18 @@ def new_ref():
     except ValueError:
         click.echo(f"Invalid reference type: {type_str}")
         return
-    ref_content = click.prompt("Enter the reference content", type=str)
+
+    if ref_type == ReferenceType.LINK:
+        ref_content = click.prompt("Enter the URL", type=str)
+    elif ref_type == ReferenceType.FILE:
+        ref_content = click.prompt("Enter the file path", type=str)
+        if not os.path.isfile(ref_content):
+            click.echo(f"File does not exist: {ref_content}")
+            return
+        ref_content = os.path.basename(ref_content)
+        shutil.copy(ref_content, os.path.join(FILES_DIR, ref_content))
+    else:
+        ref_content = click.prompt("Enter the reference content", type=str)
     ref = create_reference(type=ref_type, content=ref_content)
     todo_id, todo, target_file = prompt_todo_selection(TODO_DIR)
     if not todo:
@@ -171,16 +176,20 @@ def block():
 def update(todo_id):
     if todo_id is None:
         todo_id = prompt_todo_selection(TODO_DIR)[0]
+
     if todo_id is None:
         click.echo("No todo selected for update.")
         return
+    
     todo_tuple = find_todo_file(todo_id, TODO_DIR)
+
     if not todo_tuple or todo_tuple[0] is None or todo_tuple[1] is None:
         click.echo(f"Todo with ID {todo_id} not found or invalid.")
         return
+    
     todo, target_file = todo_tuple
 
-    click.echo(todo.status())
+    click.echo(todo.status(verbose=True))
     selection = click.prompt(
         "Enter task numbers to mark done (space seperated), or leave empty for none",
         default="",
@@ -224,8 +233,8 @@ def ls(show):
     for file in files:
         try:
             todo = from_md_file(file)
-            status = "✅" if all([t.done for t in todo.tasks]) else "❌"
-            click.echo(f"{todo.id}: {todo.name} {status}")
+            status = todo.status()
+            click.echo(status)
             if show:
                 click.echo(str(todo))
         except Exception as e:
@@ -235,21 +244,23 @@ def ls(show):
 @cli.command()
 @click.argument("todo_id")
 def done(todo_id):
-    todo, target_file = find_todo_file(todo_id, TODO_DIR)
+    todo_id, todo, target_file = prompt_todo_selection(TODO_DIR)
 
     if not todo:
+        click.echo(f"Todo with ID {todo_id} not found.")
         return
 
-    if not all([t.done for t in todo.tasks]):
+    if not todo.is_completed():
         click.echo(f"Todo {todo_id} is not yet complete.")
         return
 
     todo.properties.completed = new_timestamp()
-    todo.write(DONE_DIR)
 
     if target_file is None:
         click.echo(f"Error: target file for todo {todo_id} not found.")
         return
+    
+    todo.write(DONE_DIR)
 
     os.remove(target_file)
     click.echo(f"Todo {todo_id} marked as done and moved to done directory.")
@@ -273,7 +284,7 @@ def status():
     for file in files:
         try:
             todo = from_md_file(file)
-            click.echo(todo.status())
+            click.echo(todo.status(verbose=True))
         except Exception as e:
             click.echo(f"Error reading {file}: {e}")
 
@@ -285,6 +296,7 @@ def init():
     os.makedirs(DONE_DIR, exist_ok=True)
     os.makedirs(PROJECTS_DIR, exist_ok=True)
     os.makedirs(REF_DIR, exist_ok=True)
+    os.makedirs(FILES_DIR, exist_ok=True)
     click.echo(f"Initialized TED vault at {VAULT_DIR}.")
 
 
