@@ -83,6 +83,7 @@ class Properties(BaseModel):
     project_id: str | None = None
     tags: list[str] = []
     others: dict = {}
+    blocked_by: list[str] | None = None
 
     def __str__(self):
         props = {
@@ -92,6 +93,8 @@ class Properties(BaseModel):
             "project_id": f"[[{self.project_id}]]" if self.project_id else None,
             "tags": self.tags,
         }
+        if self.blocked_by is not None:
+            props["blocked_by"] = [f"[[{item}]]" for item in self.blocked_by]
         props.update(self.others)
         return f"---\n{yaml.dump(props)}---\n"
 
@@ -99,6 +102,7 @@ class Properties(BaseModel):
 class TodoData(BaseModel):
     name: str
     goal: str
+    filename: str
     tasks: list[Task] = []
     properties: Properties
     info: list[str] = []
@@ -110,10 +114,6 @@ class TodoData(BaseModel):
         _str += tasks2md("tasks", self.tasks)
         _str += list2md("info", self.info)
         return _str
-
-    @property
-    def filename(self):
-        return f"{self.id}_{self.name[:15].replace(' ', '_')}.md"
 
     @property
     def id(self):
@@ -152,6 +152,7 @@ class ProjectData(BaseModel):
     id: str
     name: str
     properties: Properties
+    filename: str
     description: str = ""
     info: list[str] = []
 
@@ -161,10 +162,6 @@ class ProjectData(BaseModel):
         _str += string2md(self.name, self.description)
         _str += list2md("info", self.info)
         return _str
-
-    @property
-    def filename(self):
-        return f"{self.id}.md"
 
     def write(self, vault_dir: str):
         file_dir = os.path.join(vault_dir, self.filename)
@@ -182,7 +179,13 @@ def from_md_file(filename: str):
         properties = yaml.safe_load(parts[0].split("---\n")[1])
     else:
         raise ValueError("Invalid todo file format: missing properties section.")
+    
     properties["project_id"] = parse_project_id(properties.get("project_id"))
+
+    if "blocked_by" in properties and properties["blocked_by"] is not None:
+        properties["blocked_by"] = [
+            parse_project_id(item) for item in properties["blocked_by"]
+        ]
     name, goal = parts[1].split("\n")[:2]
 
     tasks = [str2todo(p) for p in parts[2].split("\n") if p.startswith("- [")]
@@ -193,12 +196,14 @@ def from_md_file(filename: str):
         info = [p[2:] for p in parts[3].split("\n") if p.startswith("- ")]
 
     properties = Properties(**properties)
+    filename = os.path.basename(filename)
     return TodoData(
         name=name,
         goal=goal.strip(),
         tasks=tasks,
         properties=properties,
         info=info,
+        filename=filename,
     )
 
 
@@ -304,7 +309,7 @@ def new():
     last_id = max([int(os.path.basename(f)[1:6]) for f in files], default=0)
     n_files = last_id + 1
     _id = f"T{n_files:05d}"
-
+    filename = f"{_id}_{name[:15].lower().replace(' ', '_')}.md"
     properties = Properties(
         created=creation_timestamp,
         id=_id,
@@ -312,7 +317,9 @@ def new():
     )
 
     tasks = [Task(done=False, description=next)]
-    todo = TodoData(name=name, goal=goal, tasks=tasks, properties=properties)
+    todo = TodoData(
+        name=name, goal=goal, tasks=tasks, properties=properties, filename=filename
+    )
     todo.write(TODO_DIR)
 
 
@@ -328,11 +335,39 @@ def new_p():
     n_files = last_id + 1
     _id = f"P{n_files:05d}"
     properties = Properties(id=_id, created=creation_timestamp)
-
+    filename = _id + ".md"
     project = ProjectData(
-        id=_id, name=name, description=description, properties=properties
+        id=_id,
+        name=name,
+        description=description,
+        properties=properties,
+        filename=filename,
     )
     project.write(PROJECTS_DIR)
+
+
+@cli.command()
+def block():
+    click.echo("Select the todo to be blocked:")
+    todo_id, todo, target_file = prompt_todo_selection()
+    if not todo:
+        click.echo("No valid todo selected for blocking.")
+        return
+
+    click.echo("Select the todo that blocks the first todo:")
+    block_id, block_todo, block_file = prompt_todo_selection()
+    if not block_todo:
+        click.echo("No valid todo selected to block by.")
+        return
+
+    if todo.properties.blocked_by is None:
+        todo.properties.blocked_by = []
+    if block_todo.filename not in todo.properties.blocked_by:
+        todo.properties.blocked_by.append(block_todo.filename)
+        todo.write(TODO_DIR)
+        click.echo(f"Todo {todo_id} is now blocked by {block_todo.filename}.")
+    else:
+        click.echo(f"Todo {todo_id} is already blocked by {block_todo.filename}.")
 
 
 @cli.command()
