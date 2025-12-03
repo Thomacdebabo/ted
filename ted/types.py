@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from enum import Enum
 
 
-from ted.config import VAULT_DIR, TODO_DIR, REF_DIR, DONE_DIR, PROJECTS_DIR, FILES_DIR
+from ted.config import Config
 
 
 class ReferenceType(str, Enum):
@@ -155,6 +155,10 @@ class TodoData(BaseModel):
     def id(self):
         return self.properties.id
 
+    @property
+    def tags(self) -> list[str]:
+        return self.properties.tags
+
     def is_completed(self) -> bool:
         return all([t.done for t in self.tasks])
 
@@ -166,9 +170,9 @@ class TodoData(BaseModel):
     def _status(self) -> StatusSymbols:
         if self.properties.blocked_by is not None:
             for t in self.properties.blocked_by:
-                if os.path.exists(os.path.join(TODO_DIR, t)) is False:
+                if os.path.exists(os.path.join(Config.TODO_DIR, t)) is False:
                     continue
-                status = from_md_file(os.path.join(TODO_DIR, t))
+                status = from_md_file(os.path.join(Config.TODO_DIR, t))
                 if status._status() != StatusSymbols.DONE:
                     return StatusSymbols.BLOCKED
 
@@ -221,7 +225,7 @@ class ProjectData(BaseModel):
         _str += list2md("info", self.info)
         return _str
 
-    def write(self, vault_dir: str):
+    def write(self, vault_dir: str) -> None:
         file_dir = os.path.join(vault_dir, self.filename)
         with open(file_dir, "w", encoding="utf8") as f:
             f.write(self.__str__())
@@ -235,13 +239,13 @@ def parse_project_id(proj_str: str | None) -> str | None:
     return proj_str
 
 
-def str2todo(todo_str: str):
+def str2todo(todo_str: str) -> Task:
     t = todo_str[6:].strip()
     b = todo_str.startswith("- [x] ")
     return Task(done=b, description=t)
 
 
-def from_md_file(filename: str):
+def from_md_file(filename: str) -> TodoData:
     with open(filename, "r") as f:
         text = f.read()
 

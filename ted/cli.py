@@ -5,7 +5,7 @@ import shutil
 import click
 import yaml
 from pydantic import BaseModel
-from ted.config import VAULT_DIR, TODO_DIR, REF_DIR, DONE_DIR, PROJECTS_DIR, FILES_DIR
+from ted.config import Config
 from ted.types import (
     Properties,
     StatusSymbols,
@@ -52,10 +52,10 @@ def new_t():
     goal = click.prompt("Enter passing criteria", type=str)
     next = click.prompt("Next task to do", type=str)
 
-    project_id = prompt_project_selection(PROJECTS_DIR)
+    project_id = prompt_project_selection(Config.PROJECTS_DIR)
 
     creation_timestamp = new_timestamp()
-    next_id = get_next_id(TODO_DIR)
+    next_id = get_next_id(Config.TODO_DIR)
 
     _id = f"T{next_id:05d}"
     filename = f"{_id}_{name[:15].lower().replace(' ', '_')}.md"
@@ -70,7 +70,7 @@ def new_t():
     todo = TodoData(
         name=name, goal=goal, tasks=tasks, properties=properties, filename=filename
     )
-    todo.write(TODO_DIR)
+    todo.write(Config.TODO_DIR)
 
 
 @cli.command()
@@ -79,7 +79,7 @@ def new_p():
     description = click.prompt("Enter project description", type=str)
 
     creation_timestamp = new_timestamp()
-    next_id = get_next_id(PROJECTS_DIR)
+    next_id = get_next_id(Config.PROJECTS_DIR)
     _id = f"P{next_id:05d}"
 
     properties = Properties(id=_id, created=creation_timestamp)
@@ -91,7 +91,7 @@ def new_p():
         properties=properties,
         filename=filename,
     )
-    project.write(PROJECTS_DIR)
+    project.write(Config.PROJECTS_DIR)
 
 
 @cli.command()
@@ -114,19 +114,19 @@ def new_ref():
             click.echo(f"File does not exist: {ref_content}")
             return
         ref_content = os.path.basename(ref_content)
-        shutil.copy(ref_content, os.path.join(FILES_DIR, ref_content))
+        shutil.copy(ref_content, os.path.join(Config.FILES_DIR, ref_content))
     elif ref_type == ReferenceType.NOTEBOOK:
         ref_content = click.prompt("Enter the reference content", type=str)
         date = datetime.now().strftime("%Y-%m-%d")
         ref_content = f"Notebook: **{date}** {ref_content}"
     ref = create_reference(type=ref_type, content=ref_content)
-    todo_id, todo, target_file = prompt_todo_selection(TODO_DIR)
+    todo_id, todo, target_file = prompt_todo_selection(Config.TODO_DIR)
     if not todo:
         click.echo("No valid todo selected for reference.")
         return
     tldr = click.prompt("Enter TLDR for the reference", type=str, default="")
     task = todo.filename
-    next_id = get_next_id(REF_DIR)
+    next_id = get_next_id(Config.REF_DIR)
     _id = f"R{next_id:05d}"
     filename = f"{_id}.md"
     creation_timestamp = new_timestamp()
@@ -142,19 +142,19 @@ def new_ref():
         filename=filename,
         tldr=tldr,
     )
-    reference.write(REF_DIR)
+    reference.write(Config.REF_DIR)
 
 
 @cli.command()
 def block():
     click.echo("Select the todo to be blocked:")
-    todo_id, todo, target_file = prompt_todo_selection(TODO_DIR)
+    todo_id, todo, target_file = prompt_todo_selection(Config.TODO_DIR)
     if not todo:
         click.echo("No valid todo selected for blocking.")
         return
 
     click.echo("Select the todo that blocks the first todo:")
-    block_id, block_todo, block_file = prompt_todo_selection(TODO_DIR)
+    block_id, block_todo, block_file = prompt_todo_selection(Config.TODO_DIR)
     if not block_todo:
         click.echo("No valid todo selected to block by.")
         return
@@ -163,7 +163,7 @@ def block():
         todo.properties.blocked_by = []
     if block_todo.filename not in todo.properties.blocked_by:
         todo.properties.blocked_by.append(block_todo.filename)
-        todo.write(TODO_DIR)
+        todo.write(Config.TODO_DIR)
         click.echo(f"Todo {todo_id} is now blocked by {block_todo.filename}.")
     else:
         click.echo(f"Todo {todo_id} is already blocked by {block_todo.filename}.")
@@ -177,13 +177,13 @@ def block():
 )
 def update(todo_id):
     if todo_id is None:
-        todo_id = prompt_todo_selection(TODO_DIR)[0]
+        todo_id = prompt_todo_selection(Config.TODO_DIR)[0]
 
     if todo_id is None:
         click.echo("No todo selected for update.")
         return
 
-    todo_tuple = find_todo_file(todo_id, TODO_DIR)
+    todo_tuple = find_todo_file(todo_id, Config.TODO_DIR)
 
     if not todo_tuple or todo_tuple[0] is None or todo_tuple[1] is None:
         click.echo(f"Todo with ID {todo_id} not found or invalid.")
@@ -223,7 +223,7 @@ def update(todo_id):
     if extra_info:
         todo.info.append(extra_info)
 
-    todo.write(TODO_DIR)
+    todo.write(Config.TODO_DIR)
 
     click.echo(f"Updated todo {todo.id} and wrote changes to {target_file}")
 
@@ -231,22 +231,30 @@ def update(todo_id):
 @cli.command()
 @click.option("-s", "--show", is_flag=True, help="Show details for each todo")
 def ls(show):
-    files = find_files(TODO_DIR)
-    for file in files:
-        try:
-            todo = from_md_file(file)
-            status = todo.status()
-            click.echo(status)
+    files = find_files(Config.TODO_DIR)
+    todos = [from_md_file(file) for file in files]
+    tag_dict = {}
+
+    for todo in todos:
+        tags = todo.tags
+        for tag in tags:
+            t = tag_dict.get(tag, [])
+            t.append(todo)
+            tag_dict[tag] = t
+
+    for tag, tag_todos in tag_dict.items():
+        click.echo(f"Tag: {tag} - {len(tag_todos)} todos")
+        for todo in tag_todos:
+            status = todo._status().value
+            click.echo(f"  {status} {todo.id}: {todo.name}")
             if show:
                 click.echo(str(todo))
-        except Exception as e:
-            click.echo(f"Error reading {file}: {e}")
 
 
 @cli.command()
 @click.argument("todo_id")
 def done(todo_id):
-    todo_id, todo, target_file = prompt_todo_selection(TODO_DIR)
+    todo_id, todo, target_file = prompt_todo_selection(Config.TODO_DIR)
 
     if not todo:
         click.echo(f"Todo with ID {todo_id} not found.")
@@ -262,7 +270,7 @@ def done(todo_id):
         click.echo(f"Error: target file for todo {todo_id} not found.")
         return
 
-    todo.write(DONE_DIR)
+    todo.write(Config.DONE_DIR)
 
     os.remove(target_file)
     click.echo(f"Todo {todo_id} marked as done and moved to done directory.")
@@ -271,7 +279,7 @@ def done(todo_id):
 @cli.command()
 @click.argument("todo_id")
 def show(todo_id):
-    todo_tuple = find_todo_file(todo_id, TODO_DIR)
+    todo_tuple = find_todo_file(todo_id, Config.TODO_DIR)
     if not todo_tuple:
         click.echo(f"Todo with ID {todo_id} not found.")
         return
@@ -282,7 +290,7 @@ def show(todo_id):
 
 @cli.command()
 def status():
-    files = find_files(TODO_DIR)
+    files = find_files(Config.TODO_DIR)
     for file in files:
         try:
             todo = from_md_file(file)
@@ -294,12 +302,8 @@ def status():
 @cli.command()
 def init():
     """Initialize the TED vault directories."""
-    os.makedirs(TODO_DIR, exist_ok=True)
-    os.makedirs(DONE_DIR, exist_ok=True)
-    os.makedirs(PROJECTS_DIR, exist_ok=True)
-    os.makedirs(REF_DIR, exist_ok=True)
-    os.makedirs(FILES_DIR, exist_ok=True)
-    click.echo(f"Initialized TED vault at {VAULT_DIR}.")
+    Config.init()
+    click.echo(f"Initialized TED vault at {Config.VAULT_DIR}.")
 
 
 def main():
