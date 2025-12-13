@@ -5,7 +5,6 @@ import yaml
 from pydantic import BaseModel
 from enum import Enum
 
-
 from ted.config import Config
 
 
@@ -53,6 +52,12 @@ class Task(BaseModel):
         else:
             return f"- [ ] {self.description}"
 
+    @staticmethod
+    def from_md(md_str: str) -> "Task":
+        done = md_str.startswith("- [x] ")
+        description = md_str[6:].strip()
+        return Task(done=done, description=description)
+
     def status(self) -> str:
         status = StatusSymbols.DONE.value if self.done else StatusSymbols.NOT_DONE.value
         return status + f" {self.description}"
@@ -62,11 +67,6 @@ class Task(BaseModel):
 
     def mark_undone(self):
         self.done = False
-
-
-def tasks2md(key: str, lst: list[Task]):
-    task_string = "\n".join([l.to_md() for l in lst])
-    return f"# {key.capitalize()} \n{task_string}\n"
 
 
 class Properties(BaseModel):
@@ -141,6 +141,11 @@ class ReferenceData(BaseModel):
         return self.properties.id
 
 
+def tasks2md(key: str, lst: list[Task]):
+    task_string = "\n".join([item.to_md() for item in lst])
+    return f"# {key.capitalize()} \n{task_string}\n"
+
+
 class TodoData(BaseModel):
     name: str
     goal: str
@@ -172,6 +177,10 @@ class TodoData(BaseModel):
     def write(self, vault_dir: str):
         file_dir = os.path.join(vault_dir, self.filename)
         with open(file_dir, "w", encoding="utf-8") as f:
+            f.write(str(self))
+
+    def save(self):
+        with open(self.filepath, "w", encoding="utf-8") as f:
             f.write(str(self))
 
     def _status(self) -> StatusSymbols:
@@ -295,12 +304,6 @@ def parse_project_id(proj_str: str | None) -> str | None:
     return proj_str
 
 
-def str2todo(todo_str: str) -> Task:
-    t = todo_str[6:].strip()
-    b = todo_str.startswith("- [x] ")
-    return Task(done=b, description=t)
-
-
 def parse_properties(prop_str: str) -> Properties:
     properties = yaml.safe_load(prop_str.split("---\n")[1])
     properties["project_id"] = parse_project_id(properties.get("project_id"))
@@ -323,7 +326,7 @@ def from_md_file(filepath: str) -> TodoData:
         raise ValueError("Invalid todo file format: missing properties section.")
     name, goal = parts[1].split("\n")[:2]
 
-    tasks = [str2todo(p) for p in parts[2].split("\n") if p.startswith("- [")]
+    tasks = [Task.from_md(p) for p in parts[2].split("\n") if p.startswith("- [")]
 
     if len(parts) < 4:
         info = []

@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.12.4",
     "pyinstaller>=6.16.0",
     "pyyaml>=6.0.3",
+    "types-pyyaml>=6.0.12.20250915",
 ]
 
 [project.scripts]

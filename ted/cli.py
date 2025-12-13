@@ -1,28 +1,21 @@
-import glob
 import os
 from datetime import datetime
 import shutil
 import click
-import yaml
-from pydantic import BaseModel
 from ted.config import Config
 from ted.types import (
     Properties,
-    StatusSymbols,
     TodoData,
     ProjectData,
     ReferenceData,
     Task,
-    Reference,
     ReferenceType,
     create_reference,
-    from_md_file,
 )
 from ted.utils import (
     prompt_todo_selection,
     prompt_project_selection,
     new_timestamp,
-    find_todo_file,
 )
 
 from ted.vault import Vault
@@ -209,15 +202,14 @@ def update(todo_id):
         click.echo("No todo selected for update.")
         return
 
-    todo_tuple = find_todo_file(todo_id, Config.TODO_DIR)
+    todo = VAULT_DATA.find("todos", todo_id)
 
-    if not todo_tuple or todo_tuple[0] is None or todo_tuple[1] is None:
+    if not todo:
         click.echo(f"Todo with ID {todo_id} not found or invalid.")
         return
 
-    todo, target_file = todo_tuple
-
     click.echo(todo.status(verbose=True))
+
     selection = click.prompt(
         "Enter task numbers to mark done (space seperated), or leave empty for none",
         default="",
@@ -246,12 +238,12 @@ def update(todo_id):
     extra_info = click.prompt(
         "Additional info to add (leave empty for none)", default="", show_default=False
     ).strip()
+
     if extra_info:
         todo.info.append(extra_info)
 
-    todo.write(Config.TODO_DIR)
-
-    click.echo(f"Updated todo {todo.id} and wrote changes to {target_file}")
+    todo.save()
+    click.echo(f"Updated todo {todo.id} and wrote changes to {todo.filepath}")
 
 
 @cli.command()
