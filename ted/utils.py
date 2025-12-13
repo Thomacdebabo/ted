@@ -44,31 +44,17 @@ def find_todo_file(todo_id: str, todo_dir: str):
     return from_md_file(target_file), target_file
 
 
-def prompt_project_selection(project_dir: str):
-    project_files = find_files(project_dir)
-    if project_files:
+def prompt_project_selection(projects: list[ProjectData]):
+    if projects:
         click.echo("Available project files: ")
-        for i, pf in enumerate(project_files):
-            project = from_md_file(pf)
-            click.echo(f"{i}. {os.path.basename(pf)} - {project.name}")
+        for i, project in enumerate(projects):
+            click.echo(f"{i}. {project.shorthand} {project.name}")
         project_idx = click.prompt(
             "Project ID (leave empty for none)", default="", show_default=False
         ).strip()
-    else:
-        project_idx = ""
+        return projects[int(project_idx)] if project_idx != "" else None
 
-    if project_idx != "":
-        try:
-            project_idx = int(project_idx)
-            project_file = project_files[project_idx]
-            project = from_md_file(project_file)
-            project_id = project.id
-        except (ValueError, IndexError):
-            click.echo("Invalid project selection. Proceeding without a project.")
-            project_id = None
-    else:
-        project_id = None
-    return project_id
+    return None
 
 
 def prompt_todo_selection(todos: list[TodoData]):

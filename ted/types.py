@@ -235,7 +235,11 @@ class ProjectData(BaseModel):
     def __str__(self) -> str:
         _str = ""
         _str += str(self.properties)
-        _str += string2md(self.name, self.description)
+        if self.shorthand:
+            name = f"{self.shorthand}: {self.name}\n"
+            _str += string2md(name, self.description)
+        else:
+            _str += string2md(self.name, self.description)
         _str += list2md("info", self.info)
         return _str
 
@@ -297,23 +301,26 @@ def str2todo(todo_str: str) -> Task:
     return Task(done=b, description=t)
 
 
-def from_md_file(filepath: str) -> TodoData:
-    with open(filepath, "r") as f:
-        text = f.read()
-
-    parts = text.split("# ")
-
-    if parts[0] != "":
-        properties = yaml.safe_load(parts[0].split("---\n")[1])
-    else:
-        raise ValueError("Invalid todo file format: missing properties section.")
-
+def parse_properties(prop_str: str) -> Properties:
+    properties = yaml.safe_load(prop_str.split("---\n")[1])
     properties["project_id"] = parse_project_id(properties.get("project_id"))
 
     if "blocked_by" in properties and properties["blocked_by"] is not None:
         properties["blocked_by"] = [
             parse_project_id(item) for item in properties["blocked_by"]
         ]
+    return Properties(**properties)
+
+
+def from_md_file(filepath: str) -> TodoData:
+    with open(filepath, "r") as f:
+        text = f.read()
+
+    parts = text.split("# ")
+    if parts[0] != "":
+        properties = parse_properties(parts[0])
+    else:
+        raise ValueError("Invalid todo file format: missing properties section.")
     name, goal = parts[1].split("\n")[:2]
 
     tasks = [str2todo(p) for p in parts[2].split("\n") if p.startswith("- [")]
@@ -323,7 +330,6 @@ def from_md_file(filepath: str) -> TodoData:
     else:
         info = [p[2:] for p in parts[3].split("\n") if p.startswith("- ")]
 
-    properties = Properties(**properties)
     filename = os.path.basename(filepath)
     return TodoData(
         name=name,
@@ -343,16 +349,10 @@ def ref_from_md_file(filename: str):
     parts = text.split("# ")
 
     if parts[0] != "":
-        properties = yaml.safe_load(parts[0].split("---\n")[1])
+        properties = parse_properties(parts[0])
     else:
-        raise ValueError("Invalid todo file format: missing properties section.")
-    if "project_id" in properties:
-        properties["project_id"] = parse_project_id(properties.get("project_id"))
+        raise ValueError("Invalid reference file format: missing properties section.")
 
-    if "blocked_by" in properties and properties["blocked_by"] is not None:
-        properties["blocked_by"] = [
-            parse_project_id(item) for item in properties["blocked_by"]
-        ]
     name, ref = parts[1].split("\n")[:2]
     if ref.startswith("[link]("):
         ref_content = ref[len("[link](") : -1]
@@ -365,18 +365,55 @@ def ref_from_md_file(filename: str):
         ref_obj = Reference(type=ReferenceType.FILE, content=ref_content)
     else:
         raise ValueError("Invalid reference file format: unknown reference type.")
+
     task = parts[2].split("\n")[1].strip()
 
     task_id = parse_project_id(task)
     if task_id is None:
         raise ValueError("Invalid reference file format: missing task reference.")
 
-    properties = Properties(**properties)
     filename = os.path.basename(filename)
+
     return ReferenceData(
         name=name,
         ref=ref_obj,
         properties=properties,
         filename=filename,
         task=task_id,
+    )
+
+
+def proj_from_md_file(filename: str):
+    with open(filename, "r") as f:
+        text = f.read()
+
+    parts = text.split("# ")
+
+    if parts[0] != "":
+        properties = parse_properties(parts[0])
+    else:
+        raise ValueError("Invalid project file format: missing properties section.")
+
+    name, description = parts[1].split("\n")[:2]
+    if ":" in name:
+        shorthand, name = name.split(":", 1)
+        shorthand = shorthand.strip()
+        name = name.strip()
+    else:
+        shorthand = ""
+    if len(parts) < 3:
+        info = []
+    else:
+        info = [p[2:] for p in parts[2].split("\n") if p.startswith("- ")]
+
+    filename = os.path.basename(filename)
+
+    return ProjectData(
+        id=properties.id,
+        name=name,
+        shorthand=shorthand,
+        description=description.strip(),
+        properties=properties,
+        filename=filename,
+        info=info,
     )

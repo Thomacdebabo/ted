@@ -56,12 +56,14 @@ def new_t():
     goal = click.prompt("Enter passing criteria", type=str)
     next = click.prompt("Next task to do", type=str)
 
-    project_id = prompt_project_selection(Config.PROJECTS_DIR)
+    project = prompt_project_selection(VAULT_DATA.projects)
 
     creation_timestamp = new_timestamp()
     next_id = VAULT_DATA.get_next_id("todos")
-
-    _id = f"T{next_id:05d}"
+    if project and project.shorthand:
+        _id = f"{project.shorthand}{next_id:03d}"
+    else:
+        _id = f"T{next_id:05d}"
     filename = f"{_id}_{name[:15].lower().replace(' ', '_')}.md"
 
     filepath = os.path.join(VAULT.required_dirs["todos"], filename)
@@ -69,7 +71,7 @@ def new_t():
     properties = Properties(
         created=creation_timestamp,
         id=_id,
-        project_id=project_id if project_id else None,
+        project_id=project.id if project else None,
     )
 
     tasks = [Task(done=False, description=next)]
@@ -88,7 +90,17 @@ def new_t():
 def new_p():
     name = click.prompt("Enter the new project name", type=str)
     description = click.prompt("Enter project description", type=str)
+    shorthand = click.prompt(
+        "Enter project shorthand (3 to 8 characters)",
+        type=str,
+        default="",
+        show_default=False,
+    )
+    if shorthand and (len(shorthand) < 3 or len(shorthand) > 8):
+        click.echo("Shorthand must be between 3 and 8 characters.")
+        return
 
+    shorthand = shorthand.upper()
     creation_timestamp = new_timestamp()
     next_id = VAULT_DATA.get_next_id("projects")
     _id = f"P{next_id:05d}"
@@ -98,6 +110,7 @@ def new_p():
     project = ProjectData(
         id=_id,
         name=name,
+        shorthand=shorthand,
         description=description,
         properties=properties,
         filename=filename,

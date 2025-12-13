@@ -1,6 +1,12 @@
 from ted.config import Config
 import os
-from ted.types import TodoData, VaultData, from_md_file, ref_from_md_file
+from ted.types import (
+    TodoData,
+    VaultData,
+    from_md_file,
+    ref_from_md_file,
+    proj_from_md_file,
+)
 
 
 class Vault:
@@ -41,7 +47,7 @@ class Vault:
     def load_vault_data(self) -> VaultData:
         todo_files = self.get_files(self.required_dirs["todos"])
         done_files = self.get_files(self.required_dirs["done"])
-        # project_files = self.get_files(self.required_dirs["projects"])
+        project_files = self.get_files(self.required_dirs["projects"])
         reference_files = self.get_files(self.required_dirs["ref"])
 
         todos = []
@@ -53,19 +59,19 @@ class Vault:
             done = from_md_file(full_path)
             dones.append(done)
 
-        # projects = []
-        # for dirs, file in project_files:
-        #     file_path = os.path.join(self.required_dirs["projects"], *dirs, file)
-        #     print(f"Loading project file: {file_path}")
-        #     project = from_md_file(file_path)
-        #     projects.append(project)
+        projects = []
+        for dirs, file, full_path in project_files:
+            project = proj_from_md_file(full_path)
+            projects.append(project)
 
         references = []
         for dirs, file, full_path in reference_files:
             reference = ref_from_md_file(full_path)
             references.append(reference)
 
-        return VaultData(todos=todos, dones=dones, references=references)
+        return VaultData(
+            todos=todos, dones=dones, projects=projects, references=references
+        )
 
     def print_todos(self, todos):
         tmp_todos = [(dirs, todo) for dirs, todo in todos]
