@@ -317,17 +317,6 @@ def init():
     click.echo(f"Initialized TED vault at {Config.VAULT_DIR}.")
 
 
-@cli.command()
-def vault():
-    """Access the TED vault."""
-    v = Vault(Config)
-    vault_data = v.load_vault_data()
-    t = vault_data.find("todos", "T00001")
-    todos = v.load_todos()
-    v.print_todos(todos)
-    print(t)
-
-
 def main():
     cli()
 
