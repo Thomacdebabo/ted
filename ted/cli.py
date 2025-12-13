@@ -264,8 +264,9 @@ def ls(show):
 
 
 @cli.command()
-def done():
-    todo = prompt_todo_selection(VAULT_DATA.todos)
+@click.argument("todo_id")
+def done(todo_id):
+    todo = VAULT_DATA.find("todos", todo_id)
 
     if not todo:
         click.echo(f"Todo with ID {todo.id} not found.")
@@ -273,7 +274,13 @@ def done():
 
     if not todo.is_completed():
         click.echo(f"Todo {todo.id} is not yet complete.")
-        return
+        for i, task in enumerate(todo.tasks):
+            if not task.done:
+                click.echo(f" - Task {i}: {task.description} [NOT DONE]")
+        confirm = click.prompt("y to confirm marking as done", type=str)
+        if confirm.lower() != "y":
+            return
+        todo.mark_all_done()
 
     todo.properties.completed = new_timestamp()
 

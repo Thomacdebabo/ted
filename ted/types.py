@@ -218,6 +218,12 @@ class TodoData(BaseModel):
         desc = self.tasks[task_index].description
         self.add_info(f"{timestamp} | Completed: {desc}")
 
+    def mark_all_done(self):
+        for task in self.tasks:
+            if not task.done:
+                task.mark_done()
+        self.add_info(f"{new_timestamp()} | All tasks marked as done.")
+
 
 class ProjectData(BaseModel):
     id: str
