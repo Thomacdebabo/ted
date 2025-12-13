@@ -14,7 +14,7 @@ from ted.types import (
     Task,
     Reference,
     ReferenceType,
-    from_md_file
+    from_md_file,
 )
 
 
@@ -24,12 +24,8 @@ def find_files(dir):
     return files
 
 
-
 def new_timestamp():
     return datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
-
-
-
 
 
 def find_todo_file(todo_id: str, todo_dir: str):
@@ -46,7 +42,6 @@ def find_todo_file(todo_id: str, todo_dir: str):
     else:
         click.echo(f"Found todo file: {target_file}")
     return from_md_file(target_file), target_file
-
 
 
 def prompt_project_selection(project_dir: str):
@@ -76,12 +71,11 @@ def prompt_project_selection(project_dir: str):
     return project_id
 
 
-def prompt_todo_selection(todo_dir: str):
-    todo_files = find_files(todo_dir)
-    if todo_files:
+def prompt_todo_selection(todos: list[TodoData]):
+    if todos:
         click.echo("Available todo files: ")
-        for i, tf in enumerate(todo_files):
-            click.echo(f"{i}. {os.path.basename(tf)}")
+        for i, todo in enumerate(todos):
+            click.echo(f"{i}. {todo.name}")
         todo_idx = click.prompt(
             "Todo ID (leave empty for none)", default="", show_default=False
         ).strip()
@@ -91,22 +85,9 @@ def prompt_todo_selection(todo_dir: str):
     if todo_idx != "":
         try:
             todo_idx = int(todo_idx)
-            todo_file = todo_files[todo_idx]
-            todo = from_md_file(todo_file)
-            todo_id = todo.id
+            todo = todos[todo_idx]
         except (ValueError, IndexError):
             click.echo("Invalid todo selection. Proceeding without a todo.")
-            todo_id = None
             todo = None
-            todo_file = None
-    else:
-        todo_id = None
-        todo = None
-        todo_file = None
-    return todo_id, todo, todo_file
 
-
-def get_next_id(file_dir: str) -> int:
-    files = find_files(file_dir)
-    last_id = max([int(os.path.basename(f)[1:6]) for f in files], default=0)
-    return last_id + 1
+    return todo

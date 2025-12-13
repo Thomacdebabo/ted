@@ -19,13 +19,17 @@ from ted.types import (
     from_md_file,
 )
 from ted.utils import (
-    get_next_id,
     prompt_todo_selection,
     prompt_project_selection,
     new_timestamp,
     find_todo_file,
-    find_files,
 )
+
+from ted.vault import Vault
+
+CONFIG = Config()
+VAULT = Vault(CONFIG)
+VAULT_DATA = VAULT.load_vault_data()
 
 
 @click.group()
@@ -55,10 +59,12 @@ def new_t():
     project_id = prompt_project_selection(Config.PROJECTS_DIR)
 
     creation_timestamp = new_timestamp()
-    next_id = get_next_id(Config.TODO_DIR)
+    next_id = VAULT_DATA.get_next_id("todos")
 
     _id = f"T{next_id:05d}"
     filename = f"{_id}_{name[:15].lower().replace(' ', '_')}.md"
+
+    filepath = os.path.join(VAULT.required_dirs["todos"], filename)
 
     properties = Properties(
         created=creation_timestamp,
@@ -68,9 +74,14 @@ def new_t():
 
     tasks = [Task(done=False, description=next)]
     todo = TodoData(
-        name=name, goal=goal, tasks=tasks, properties=properties, filename=filename
+        name=name,
+        goal=goal,
+        tasks=tasks,
+        properties=properties,
+        filename=filename,
+        filepath=filepath,
     )
-    todo.write(Config.TODO_DIR)
+    todo.write(VAULT.required_dirs["todos"])
 
 
 @cli.command()
@@ -79,7 +90,7 @@ def new_p():
     description = click.prompt("Enter project description", type=str)
 
     creation_timestamp = new_timestamp()
-    next_id = get_next_id(Config.PROJECTS_DIR)
+    next_id = VAULT_DATA.get_next_id("projects")
     _id = f"P{next_id:05d}"
 
     properties = Properties(id=_id, created=creation_timestamp)
@@ -91,7 +102,7 @@ def new_p():
         properties=properties,
         filename=filename,
     )
-    project.write(Config.PROJECTS_DIR)
+    project.write(VAULT.required_dirs["projects"])
 
 
 @cli.command()
@@ -120,13 +131,15 @@ def new_ref():
         date = datetime.now().strftime("%Y-%m-%d")
         ref_content = f"Notebook: **{date}** {ref_content}"
     ref = create_reference(type=ref_type, content=ref_content)
-    todo_id, todo, target_file = prompt_todo_selection(Config.TODO_DIR)
+    todo = prompt_todo_selection(VAULT_DATA.todos)
+
     if not todo:
         click.echo("No valid todo selected for reference.")
         return
+
     tldr = click.prompt("Enter TLDR for the reference", type=str, default="")
     task = todo.filename
-    next_id = get_next_id(Config.REF_DIR)
+    next_id = VAULT_DATA.get_next_id("references")
     _id = f"R{next_id:05d}"
     filename = f"{_id}.md"
     creation_timestamp = new_timestamp()
@@ -148,13 +161,13 @@ def new_ref():
 @cli.command()
 def block():
     click.echo("Select the todo to be blocked:")
-    todo_id, todo, target_file = prompt_todo_selection(Config.TODO_DIR)
+    todo = prompt_todo_selection(VAULT_DATA.todos)
     if not todo:
         click.echo("No valid todo selected for blocking.")
         return
 
     click.echo("Select the todo that blocks the first todo:")
-    block_id, block_todo, block_file = prompt_todo_selection(Config.TODO_DIR)
+    block_todo = prompt_todo_selection(VAULT_DATA.todos)
     if not block_todo:
         click.echo("No valid todo selected to block by.")
         return
@@ -164,9 +177,9 @@ def block():
     if block_todo.filename not in todo.properties.blocked_by:
         todo.properties.blocked_by.append(block_todo.filename)
         todo.write(Config.TODO_DIR)
-        click.echo(f"Todo {todo_id} is now blocked by {block_todo.filename}.")
+        click.echo(f"Todo {todo.id} is now blocked by {block_todo.filename}.")
     else:
-        click.echo(f"Todo {todo_id} is already blocked by {block_todo.filename}.")
+        click.echo(f"Todo {todo.id} is already blocked by {block_todo.filename}.")
 
 
 @cli.command()
@@ -231,8 +244,7 @@ def update(todo_id):
 @cli.command()
 @click.option("-s", "--show", is_flag=True, help="Show details for each todo")
 def ls(show):
-    files = find_files(Config.TODO_DIR)
-    todos = [from_md_file(file) for file in files]
+    todos = VAULT_DATA.todos
     tag_dict = {}
 
     for todo in todos:
@@ -252,51 +264,43 @@ def ls(show):
 
 
 @cli.command()
-@click.argument("todo_id")
-def done(todo_id):
-    todo_id, todo, target_file = prompt_todo_selection(Config.TODO_DIR)
+def done():
+    todo = prompt_todo_selection(VAULT_DATA.todos)
 
     if not todo:
-        click.echo(f"Todo with ID {todo_id} not found.")
+        click.echo(f"Todo with ID {todo.id} not found.")
         return
 
     if not todo.is_completed():
-        click.echo(f"Todo {todo_id} is not yet complete.")
+        click.echo(f"Todo {todo.id} is not yet complete.")
         return
 
     todo.properties.completed = new_timestamp()
 
-    if target_file is None:
-        click.echo(f"Error: target file for todo {todo_id} not found.")
-        return
-
     todo.write(Config.DONE_DIR)
 
-    os.remove(target_file)
-    click.echo(f"Todo {todo_id} marked as done and moved to done directory.")
+    os.remove(todo.filepath)
+    click.echo(f"Todo {todo.id} marked as done and moved to done directory.")
 
 
 @cli.command()
 @click.argument("todo_id")
 def show(todo_id):
-    todo_tuple = find_todo_file(todo_id, Config.TODO_DIR)
-    if not todo_tuple:
+    todo = VAULT_DATA.find("todos", todo_id)
+    if not todo:
         click.echo(f"Todo with ID {todo_id} not found.")
         return
-    todo, target_file = todo_tuple
-
     click.echo(str(todo))
 
 
 @cli.command()
 def status():
-    files = find_files(Config.TODO_DIR)
-    for file in files:
+    todos = VAULT.load_todos()
+    for todo in todos:
         try:
-            todo = from_md_file(file)
             click.echo(todo.status(verbose=True))
         except Exception as e:
-            click.echo(f"Error reading {file}: {e}")
+            click.echo(f"Error reading {todo.filepath}: {e}")
 
 
 @cli.command()
@@ -304,6 +308,17 @@ def init():
     """Initialize the TED vault directories."""
     Config.init()
     click.echo(f"Initialized TED vault at {Config.VAULT_DIR}.")
+
+
+@cli.command()
+def vault():
+    """Access the TED vault."""
+    v = Vault(Config)
+    vault_data = v.load_vault_data()
+    t = vault_data.find("todos", "T00001")
+    todos = v.load_todos()
+    v.print_todos(todos)
+    print(t)
 
 
 def main():

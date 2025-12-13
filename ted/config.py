@@ -18,3 +18,4 @@ class Config:
         os.makedirs(Config.REF_DIR, exist_ok=True)
         os.makedirs(Config.FILES_DIR, exist_ok=True)
         os.makedirs(Config.INBOX_DIR, exist_ok=True)
+

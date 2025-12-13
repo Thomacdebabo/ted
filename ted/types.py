@@ -41,6 +41,10 @@ def list2md(key: str, lst: list[str]):
     return f"# {key.capitalize()} \n{item_string}\n"
 
 
+def id_to_int(id_str: str) -> int:
+    return int("".join(c for c in id_str if c.isdigit()))
+
+
 class Task(BaseModel):
     done: bool
     description: str
@@ -134,11 +138,16 @@ class ReferenceData(BaseModel):
         with open(file_dir, "w", encoding="utf-8") as f:
             f.write(str(self))
 
+    @property
+    def id(self):
+        return self.properties.id
+
 
 class TodoData(BaseModel):
     name: str
     goal: str
     filename: str
+    filepath: str
     tasks: list[Task] = []
     properties: Properties
     info: list[str] = []
@@ -217,6 +226,7 @@ class ProjectData(BaseModel):
     filename: str
     description: str = ""
     info: list[str] = []
+    shorthand: str = ""
 
     def __str__(self) -> str:
         _str = ""
@@ -229,6 +239,44 @@ class ProjectData(BaseModel):
         file_dir = os.path.join(vault_dir, self.filename)
         with open(file_dir, "w", encoding="utf8") as f:
             f.write(self.__str__())
+
+
+class VaultData(BaseModel):
+    todos: list[TodoData] = []
+    dones: list[TodoData] = []
+    projects: list[ProjectData] = []
+    references: list[ReferenceData] = []
+
+    def get_ids(self) -> dict[str, list[str]]:
+        ids = {
+            "todos": [todo.id for todo in self.todos + self.dones],
+            "projects": [proj.id for proj in self.projects],
+            "references": [ref.task for ref in self.references],
+        }
+        return ids
+
+    def get_next_id(self, data_type: str) -> int:
+        existing_ids = self.get_ids().get(data_type, [])
+        stripped_ids = [id_to_int(id) for id in existing_ids]
+        next_id = max(stripped_ids, default=0) + 1
+        return next_id
+
+    def find(self, data_type: str, item_id: str):
+        item_id_int = id_to_int(item_id)
+        items: list = []
+        if data_type == "todos":
+            items = self.todos + self.dones
+        elif data_type == "projects":
+            items = self.projects
+        elif data_type == "references":
+            items = self.references
+        else:
+            raise ValueError(f"Unknown data type: {data_type}")
+
+        for i in items:
+            if id_to_int(i.id) == item_id_int:
+                return i
+        return None
 
 
 def parse_project_id(proj_str: str | None) -> str | None:
@@ -245,8 +293,8 @@ def str2todo(todo_str: str) -> Task:
     return Task(done=b, description=t)
 
 
-def from_md_file(filename: str) -> TodoData:
-    with open(filename, "r") as f:
+def from_md_file(filepath: str) -> TodoData:
+    with open(filepath, "r") as f:
         text = f.read()
 
     parts = text.split("# ")
@@ -272,7 +320,7 @@ def from_md_file(filename: str) -> TodoData:
         info = [p[2:] for p in parts[3].split("\n") if p.startswith("- ")]
 
     properties = Properties(**properties)
-    filename = os.path.basename(filename)
+    filename = os.path.basename(filepath)
     return TodoData(
         name=name,
         goal=goal.strip(),
@@ -280,6 +328,7 @@ def from_md_file(filename: str) -> TodoData:
         properties=properties,
         info=info,
         filename=filename,
+        filepath=filepath,
     )
 
 
