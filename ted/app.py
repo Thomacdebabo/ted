@@ -29,10 +29,6 @@ def add():
     item = request.form.get("item")
     photo = request.files.get("photo")
 
-    # Debug logging
-    print(f"Photo object: {photo}")
-    print(f"Photo filename: {photo.filename if photo else 'None'}")
-
     # Generate randomized ID
     random_id = secrets.token_hex(4).upper()  # 8 character hex string
     inbox_id = f"I{random_id}"
@@ -44,9 +40,8 @@ def add():
         photo_filename = f"photo_{random_id}_{photo.filename}"
         photo_path = os.path.join(UPLOAD_DIR, photo_filename)
         photo.save(photo_path)
-        print(f"Saved photo to: {photo_path}")
     else:
-        print("No photo uploaded")
+        pass  # No photo uploaded
 
     inbox_item = InboxItem(
         content=item, timestamp=timestamp, id=inbox_id, photo=photo_filename
@@ -105,4 +100,5 @@ def clear_items():
 
 
 if __name__ == "__main__":
+    # Development only
     app.run(host="0.0.0.0", debug=True)
