@@ -1,71 +1,61 @@
-import json
 import os
-from flask import Flask, request, render_template_string
-from pydantic import BaseModel
+import secrets
+from flask import (
+    Flask,
+    request,
+    render_template,
+    redirect,
+    url_for,
+    send_from_directory,
+)
 from ted.utils import new_timestamp
-from ted.types import InboxItem, inbox_from_md
+from ted.data_types import InboxItem, inbox_from_md
+
 app = Flask(__name__)
 
 
 INBOX_DIR = os.path.expanduser("~/.ted-server/inbox")
+UPLOAD_DIR = os.path.expanduser("~/.ted-server/uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @app.route("/", methods=["GET"])
 def index():
-    html = """
-    <html>
-    <head>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1 { color: #333; }
-        textarea { 
-            width: 400px; 
-            height: 200px; 
-            padding: 12px; 
-            font-size: 16px; 
-            border: 2px solid #ddd;
-            border-radius: 4px;
-            resize: none;
-        }
-        textarea:focus { 
-            outline: none; 
-            border-color: #4CAF50;
-        }
-        button { 
-            padding: 12px 24px; 
-            font-size: 16px; 
-            background-color: #4CAF50; 
-            color: white; 
-            border: none; 
-            border-radius: 4px; 
-            cursor: pointer;
-        }
-        button:hover { background-color: #45a049; }
-    </style>
-    </head>
-    <body>
-    <h1>TED Inbox</h1>
-    <form action="/add" method="post">
-        <textarea name="item" placeholder="Add idea/todo" required></textarea>
-        <button type="submit">Add</button>
-    </form>
-    </body>
-    </html>
-    """
-    return render_template_string(html)
+    return render_template("index.html")
 
 
 @app.route("/add", methods=["POST"])
 def add():
     item = request.form.get("item")
-    next_id = len(os.listdir(INBOX_DIR)) + 1
+    photo = request.files.get("photo")
+
+    # Debug logging
+    print(f"Photo object: {photo}")
+    print(f"Photo filename: {photo.filename if photo else 'None'}")
+
+    # Generate randomized ID
+    random_id = secrets.token_hex(4).upper()  # 8 character hex string
+    inbox_id = f"I{random_id}"
     timestamp = new_timestamp()
-    inbox_item = InboxItem(content=item, timestamp=timestamp, id=f"I{next_id:05d}")
+
+    photo_filename = None
+    # Fix: Check if photo exists and filename is not empty string
+    if photo and photo.filename and photo.filename != "":
+        photo_filename = f"photo_{random_id}_{photo.filename}"
+        photo_path = os.path.join(UPLOAD_DIR, photo_filename)
+        photo.save(photo_path)
+        print(f"Saved photo to: {photo_path}")
+    else:
+        print("No photo uploaded")
+
+    inbox_item = InboxItem(
+        content=item, timestamp=timestamp, id=inbox_id, photo=photo_filename
+    )
     filename = f"{inbox_item.id}_{timestamp.replace(':', '').replace('-', '').replace(' ', '_')}.md"
     filepath = os.path.join(INBOX_DIR, filename)
     with open(filepath, "w") as f:
         f.write(str(inbox_item))
-    return index()
+    return redirect(url_for("index"))
 
 
 @app.route("/api/items", methods=["GET"])
@@ -87,5 +77,32 @@ def get_items():
     return {"items": items}
 
 
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+    """Serve uploaded photos."""
+    return send_from_directory(UPLOAD_DIR, filename)
+
+
+@app.route("/api/clear", methods=["POST"])
+def clear_items():
+    """Clear all inbox items and uploaded photos."""
+    try:
+        # Delete all markdown files in inbox
+        for filename in os.listdir(INBOX_DIR):
+            filepath = os.path.join(INBOX_DIR, filename)
+            if os.path.isfile(filepath) and filename.endswith(".md"):
+                os.remove(filepath)
+
+        # Delete all photos in uploads
+        for filename in os.listdir(UPLOAD_DIR):
+            filepath = os.path.join(UPLOAD_DIR, filename)
+            if os.path.isfile(filepath):
+                os.remove(filepath)
+
+        return {"status": "success", "message": "All items cleared"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}, 500
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)

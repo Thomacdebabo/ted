@@ -4,7 +4,7 @@ import shutil
 import click
 import requests  # Added for HTTP requests
 from ted.config import Config
-from ted.types import (
+from ted.data_types import (
     Properties,
     TodoData,
     ProjectData,
@@ -350,11 +350,29 @@ def inbox():
         return
 
     os.makedirs(inbox_dir, exist_ok=True)
+    photos_dir = os.path.join(inbox_dir, "photos")
+    os.makedirs(photos_dir, exist_ok=True)
 
     for item in items:
         filename, content = item["filename"], item["content"]
         filepath = os.path.join(inbox_dir, filename)
         inbox_item = InboxItem.model_validate_json(content)
+
+        # Download photo if it exists
+        if inbox_item.photo:
+            photo_url = (
+                CONFIG.INBOX_SERVER_URL.rstrip("/") + f"/uploads/{inbox_item.photo}"
+            )
+            dest_photo_path = os.path.join(photos_dir, inbox_item.photo)
+            try:
+                photo_response = requests.get(photo_url)
+                photo_response.raise_for_status()
+                with open(dest_photo_path, "wb") as photo_file:
+                    photo_file.write(photo_response.content)
+                click.echo(f"Downloaded photo {inbox_item.photo}")
+            except requests.RequestException as e:
+                click.echo(f"Error downloading photo {inbox_item.photo}: {e}")
+
         with open(filepath, "w") as f:
             f.write(str(inbox_item))
         click.echo(f"Saved inbox item {inbox_item.id} to {filepath}")

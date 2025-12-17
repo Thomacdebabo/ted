@@ -9,7 +9,7 @@ class Config:
     PROJECTS_DIR = os.path.join(VAULT_DIR, "projects")
     FILES_DIR = os.path.join(VAULT_DIR, "files")
     INBOX_DIR = os.path.join(VAULT_DIR, "inbox")
-    INBOX_SERVER_URL = "http://localhost:5000"
+    INBOX_SERVER_URL = "http://serverin.home:5000"
 
     @staticmethod
     def init():

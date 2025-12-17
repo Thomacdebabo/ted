@@ -2,7 +2,7 @@ from datetime import datetime
 
 import click
 
-from ted.types import (
+from ted.data_types import (
     TodoData,
     ProjectData,
 )

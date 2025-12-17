@@ -1,6 +1,6 @@
 from ted.config import Config
 import os
-from ted.types import (
+from ted.data_types import (
     VaultData,
     from_md_file,
     ref_from_md_file,

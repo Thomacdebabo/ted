@@ -1,13 +1,12 @@
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
+RUN pip install flask pydantic pyyaml requests
+
 COPY ted/ ted/
-
-RUN pip install flask pydantic
-
 RUN mkdir -p /root/.ted-server/inbox
 
 EXPOSE 5000
 
-CMD ["python", "ted/app.py"]
+CMD ["python", "-m", "ted.app"]

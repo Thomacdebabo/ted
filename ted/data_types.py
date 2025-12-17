@@ -62,10 +62,16 @@ def inbox_from_md(file_content: str):
             content_lines.append(line)
 
     content = "\n".join(content_lines).strip()
+
+    photo_value = metadata.get("photo", None)
+    if photo_value:
+        photo_value = photo_value.replace("[[", "").replace("]]", "").replace('"', "")
+        metadata["photo"] = photo_value
     return InboxItem(
         content=content,
         timestamp=metadata.get("timestamp", ""),
         id=metadata.get("id", ""),
+        photo=metadata.get("photo", None),
     )
 
 
@@ -73,13 +79,16 @@ class InboxItem(BaseModel):
     content: str
     timestamp: str
     id: str
+    photo: str | None = None
 
     def __str__(self):
+        photo_str = 'photo: "[[' + self.photo + ']]"\n' if self.photo else ""
         return f"""---
 timestamp: {self.timestamp}
 id: {self.id}
----
+{photo_str}---
 {self.content}
+
 """
 
 
