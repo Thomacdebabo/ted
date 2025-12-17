@@ -42,6 +42,47 @@ def id_to_int(id_str: str) -> int:
     return int("".join(c for c in id_str if c.isdigit()))
 
 
+def inbox_from_md(file_content: str):
+    lines = file_content.splitlines()
+    if lines[0].strip() != "---":
+        raise ValueError("Invalid inbox item format")
+
+    metadata = {}
+    content_lines = []
+    in_metadata = True
+
+    for line in lines[1:]:
+        if in_metadata:
+            if line.strip() == "---":
+                in_metadata = False
+            else:
+                key, value = line.split(":", 1)
+                metadata[key.strip()] = value.strip()
+        else:
+            content_lines.append(line)
+
+    content = "\n".join(content_lines).strip()
+    return InboxItem(
+        content=content,
+        timestamp=metadata.get("timestamp", ""),
+        id=metadata.get("id", ""),
+    )
+
+
+class InboxItem(BaseModel):
+    content: str
+    timestamp: str
+    id: str
+
+    def __str__(self):
+        return f"""---
+timestamp: {self.timestamp}
+id: {self.id}
+---
+{self.content}
+"""
+
+
 class Task(BaseModel):
     done: bool
     description: str

@@ -9,6 +9,7 @@ class Config:
     PROJECTS_DIR = os.path.join(VAULT_DIR, "projects")
     FILES_DIR = os.path.join(VAULT_DIR, "files")
     INBOX_DIR = os.path.join(VAULT_DIR, "inbox")
+    INBOX_SERVER_URL = "http://localhost:5000"
 
     @staticmethod
     def init():
@@ -18,4 +19,3 @@ class Config:
         os.makedirs(Config.REF_DIR, exist_ok=True)
         os.makedirs(Config.FILES_DIR, exist_ok=True)
         os.makedirs(Config.INBOX_DIR, exist_ok=True)
-

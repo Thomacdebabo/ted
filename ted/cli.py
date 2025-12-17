@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import shutil
 import click
+import requests  # Added for HTTP requests
 from ted.config import Config
 from ted.types import (
     Properties,
@@ -11,6 +12,7 @@ from ted.types import (
     Task,
     ReferenceType,
     create_reference,
+    InboxItem,
 )
 from ted.utils import (
     prompt_todo_selection,
@@ -19,6 +21,7 @@ from ted.utils import (
 )
 
 from ted.vault import Vault
+from pydantic_core import from_json
 
 CONFIG = Config()
 VAULT = Vault(CONFIG)
@@ -320,6 +323,41 @@ def init():
     """Initialize the TED vault directories."""
     Config.init()
     click.echo(f"Initialized TED vault at {Config.VAULT_DIR}.")
+
+
+@cli.command()
+def inbox():
+    """Retrieve inbox items from the inbox server and save to local inbox directory."""
+    url = CONFIG.INBOX_SERVER_URL  # Assumes this is defined in Config
+    inbox_dir = CONFIG.INBOX_DIR  # Assumes this is defined in Config
+
+    url = url.rstrip("/") + "/api/items"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        if "application/json" not in response.headers.get("content-type", ""):
+            click.echo(
+                f"Server did not return JSON. Response: {response.text[:500]}..."
+            )
+            return
+        items = response.json()["items"]
+    except requests.RequestException as e:
+        click.echo(f"Error fetching inbox items: {e}")
+        return
+    except ValueError as e:
+        click.echo(f"Invalid JSON received: {e}. Response: {response.text[:500]}...")
+        return
+
+    os.makedirs(inbox_dir, exist_ok=True)
+
+    for item in items:
+        filename, content = item["filename"], item["content"]
+        filepath = os.path.join(inbox_dir, filename)
+        inbox_item = InboxItem.model_validate_json(content)
+        with open(filepath, "w") as f:
+            f.write(str(inbox_item))
+        click.echo(f"Saved inbox item {inbox_item.id} to {filepath}")
 
 
 def main():
