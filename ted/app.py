@@ -30,6 +30,12 @@ def add():
     photo = request.files.get("photo")
     file = request.files.get("file")
 
+    # Debug: Print what we received
+    print(
+        f"DEBUG - Photo: {photo}, Photo filename: {photo.filename if photo else 'None'}"
+    )
+    print(f"DEBUG - File: {file}, File filename: {file.filename if file else 'None'}")
+
     # Generate randomized ID
     random_id = secrets.token_hex(4).upper()  # 8 character hex string
     inbox_id = f"I{random_id}"
@@ -49,7 +55,11 @@ def add():
         file.save(file_path)
 
     inbox_item = InboxItem(
-        content=item, timestamp=timestamp, id=inbox_id, photo=photo_filename, file=file_filename
+        content=item,
+        timestamp=timestamp,
+        id=inbox_id,
+        photo=photo_filename,
+        file=file_filename,
     )
     filename = f"{inbox_item.id}_{timestamp.replace(':', '').replace('-', '').replace(' ', '_')}.md"
     filepath = os.path.join(INBOX_DIR, filename)
