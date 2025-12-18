@@ -67,11 +67,18 @@ def inbox_from_md(file_content: str):
     if photo_value:
         photo_value = photo_value.replace("[[", "").replace("]]", "").replace('"', "")
         metadata["photo"] = photo_value
+
+    file_value = metadata.get("file", None)
+    if file_value:
+        file_value = file_value.replace("[[", "").replace("]]", "").replace('"', "")
+        metadata["file"] = file_value
+
     return InboxItem(
         content=content,
         timestamp=metadata.get("timestamp", ""),
         id=metadata.get("id", ""),
         photo=metadata.get("photo", None),
+        file=metadata.get("file", None),
     )
 
 
