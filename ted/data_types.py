@@ -80,13 +80,15 @@ class InboxItem(BaseModel):
     timestamp: str
     id: str
     photo: str | None = None
+    file: str | None = None
 
     def __str__(self):
         photo_str = 'photo: "[[' + self.photo + ']]"\n' if self.photo else ""
+        file_str = 'file: "[[' + self.file + ']]"\n' if self.file else ""
         return f"""---
 timestamp: {self.timestamp}
 id: {self.id}
-{photo_str}---
+{photo_str}{file_str}---
 {self.content}
 
 """

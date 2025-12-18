@@ -28,6 +28,7 @@ def index():
 def add():
     item = request.form.get("item")
     photo = request.files.get("photo")
+    file = request.files.get("file")
 
     # Generate randomized ID
     random_id = secrets.token_hex(4).upper()  # 8 character hex string
@@ -35,16 +36,20 @@ def add():
     timestamp = new_timestamp()
 
     photo_filename = None
+    file_filename = None
     # Fix: Check if photo exists and filename is not empty string
     if photo and photo.filename and photo.filename != "":
         photo_filename = f"photo_{random_id}_{photo.filename}"
         photo_path = os.path.join(UPLOAD_DIR, photo_filename)
         photo.save(photo_path)
-    else:
-        pass  # No photo uploaded
+
+    if file and file.filename and file.filename != "":
+        file_filename = f"file_{random_id}_{file.filename}"
+        file_path = os.path.join(UPLOAD_DIR, file_filename)
+        file.save(file_path)
 
     inbox_item = InboxItem(
-        content=item, timestamp=timestamp, id=inbox_id, photo=photo_filename
+        content=item, timestamp=timestamp, id=inbox_id, photo=photo_filename, file=file_filename
     )
     filename = f"{inbox_item.id}_{timestamp.replace(':', '').replace('-', '').replace(' ', '_')}.md"
     filepath = os.path.join(INBOX_DIR, filename)

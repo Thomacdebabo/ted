@@ -161,9 +161,19 @@
             <div class="file-upload">
                 <label>📷 Attach Photo (optional)</label>
                 <div class="file-input-wrapper">
-                    <input type="file" name="photo" id="photo" accept="image/*" onchange="updateFileName(this)">
+                    <input type="file" name="photo" id="photo" accept="image/*" capture="environment"
+                        onchange="updateFileName(this)">
                     <label for="photo" class="file-input-label">Choose File</label>
                     <span class="file-name" id="file-name">No file chosen</span>
+                </div>
+            </div>
+
+            <div class="file-upload">
+                <label>📎 Attach File (optional)</label>
+                <div class="file-input-wrapper">
+                    <input type="file" name="file" id="file" onchange="updateFileNameGeneric(this)">
+                    <label for="file" class="file-input-label">Choose File</label>
+                    <span class="file-name" id="file-name-generic">No file chosen</span>
                 </div>
             </div>
 
@@ -174,6 +184,15 @@
     <script>
         function updateFileName(input) {
             const fileName = document.getElementById('file-name');
+            if (input.files.length > 0) {
+                fileName.textContent = input.files[0].name;
+            } else {
+                fileName.textContent = 'No file chosen';
+            }
+        }
+
+        function updateFileNameGeneric(input) {
+            const fileName = document.getElementById('file-name-generic');
             if (input.files.length > 0) {
                 fileName.textContent = input.files[0].name;
             } else {
