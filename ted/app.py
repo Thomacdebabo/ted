@@ -29,13 +29,7 @@ def add():
     item = request.form.get("item")
     photo = request.files.get("photo")
     file = request.files.get("file")
-
-    # Debug: Print what we received
-    print(
-        f"DEBUG - Photo: {photo}, Photo filename: {photo.filename if photo else 'None'}"
-    )
-    print(f"DEBUG - File: {file}, File filename: {file.filename if file else 'None'}")
-
+    
     # Generate randomized ID
     random_id = secrets.token_hex(4).upper()  # 8 character hex string
     inbox_id = f"I{random_id}"

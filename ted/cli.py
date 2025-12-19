@@ -351,6 +351,8 @@ def inbox():
 
     os.makedirs(inbox_dir, exist_ok=True)
     photos_dir = os.path.join(inbox_dir, "photos")
+    files_dir = os.path.join(inbox_dir, "files")
+    os.makedirs(files_dir, exist_ok=True)
     os.makedirs(photos_dir, exist_ok=True)
 
     for item in items:
@@ -372,10 +374,35 @@ def inbox():
                 click.echo(f"Downloaded photo {inbox_item.photo}")
             except requests.RequestException as e:
                 click.echo(f"Error downloading photo {inbox_item.photo}: {e}")
-
+        if inbox_item.file:
+            file_url = (
+                CONFIG.INBOX_SERVER_URL.rstrip("/") + f"/uploads/{inbox_item.file}"
+            )
+            dest_file_path = os.path.join(files_dir, inbox_item.file)
+            try:
+                file_response = requests.get(file_url)
+                file_response.raise_for_status()
+                with open(dest_file_path, "wb") as data_file:
+                    data_file.write(file_response.content)
+                click.echo(f"Downloaded file {inbox_item.file}")
+            except requests.RequestException as e:
+                click.echo(f"Error downloading file {inbox_item.file}: {e}")
         with open(filepath, "w") as f:
             f.write(str(inbox_item))
         click.echo(f"Saved inbox item {inbox_item.id} to {filepath}")
+    clear_inbox = click.prompt(
+        "Clear inbox on server? (y/n)",
+        type=click.Choice(["y", "n"]),
+        default="n",
+    )
+    if clear_inbox == "y":
+        try:
+            clear_url = CONFIG.INBOX_SERVER_URL.rstrip("/") + "/api/clear"
+            clear_response = requests.post(clear_url)
+            clear_response.raise_for_status()
+            click.echo("Inbox cleared on server.")
+        except requests.RequestException as e:
+            click.echo(f"Error clearing inbox on server: {e}")
 
 
 def main():

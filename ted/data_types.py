@@ -30,7 +30,7 @@ def properties2md(props: dict):
 
 
 def string2md(key: str, string: str):
-    return f"# {key.capitalize()}\n{string}\n"
+    return f"# {key}\n{string}\n"
 
 
 def list2md(key: str, lst: list[str]):
