@@ -29,12 +29,12 @@ def add():
     item = request.form.get("item")
     photo = request.files.get("photo")
     file = request.files.get("file")
-    
+
     # Generate randomized ID
     random_id = secrets.token_hex(4).upper()  # 8 character hex string
-    inbox_id = f"I{random_id}"
-    timestamp = new_timestamp()
 
+    timestamp = new_timestamp()
+    inbox_id = f"I{timestamp}"
     photo_filename = None
     file_filename = None
     # Fix: Check if photo exists and filename is not empty string
