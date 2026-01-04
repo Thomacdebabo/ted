@@ -34,7 +34,7 @@ def add():
     random_id = secrets.token_hex(4).upper()  # 8 character hex string
 
     timestamp = new_timestamp()
-    inbox_id = f"I{timestamp}"
+    inbox_id = f"I{random_id}"
     photo_filename = None
     file_filename = None
     # Fix: Check if photo exists and filename is not empty string
