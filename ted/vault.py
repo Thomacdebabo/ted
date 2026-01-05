@@ -52,11 +52,13 @@ class Vault:
         todos = []
         for dirs, file, full_path in todo_files:
             todo = from_md_file(full_path)
-            todos.append(todo)
+            if todo:
+                todos.append(todo)
         dones = []
         for dirs, file, full_path in done_files:
             done = from_md_file(full_path)
-            dones.append(done)
+            if done:
+                dones.append(done)
 
         projects = []
         for dirs, file, full_path in project_files:

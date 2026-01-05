@@ -248,6 +248,8 @@ class TodoData(BaseModel):
                 if os.path.exists(os.path.join(Config.TODO_DIR, t)) is False:
                     continue
                 status = from_md_file(os.path.join(Config.TODO_DIR, t))
+                if not status:
+                    continue
                 if status._status() != StatusSymbols.DONE:
                     return StatusSymbols.BLOCKED
 
@@ -374,13 +376,17 @@ def parse_properties(prop_str: str) -> Properties:
     return Properties(**properties)
 
 
-def from_md_file(filepath: str) -> TodoData:
+def from_md_file(filepath: str) -> TodoData | None:
     with open(filepath, "r") as f:
         text = f.read()
 
     parts = text.split("# ")
     if parts[0] != "":
-        properties = parse_properties(parts[0])
+        try: 
+            properties = parse_properties(parts[0])
+        except Exception as e:
+            print(f"Error parsing properties in todo file {filepath}: {e}")
+            return None
     else:
         raise ValueError("Invalid todo file format: missing properties section.")
     name, goal = parts[1].split("\n")[:2]
@@ -393,15 +399,20 @@ def from_md_file(filepath: str) -> TodoData:
         info = [p[2:] for p in parts[3].split("\n") if p.startswith("- ")]
 
     filename = os.path.basename(filepath)
-    return TodoData(
-        name=name,
-        goal=goal.strip(),
-        tasks=tasks,
-        properties=properties,
-        info=info,
-        filename=filename,
-        filepath=filepath,
-    )
+    try: 
+        return TodoData(
+            name=name,
+            goal=goal.strip(),
+            filename=filename,
+            filepath=filepath,
+            tasks=tasks,
+            properties=properties,
+            info=info,
+        )
+    except Exception as e:
+        print(f"Error parsing todo file {filepath}: {e}")
+        return None
+
 
 
 def ref_from_md_file(filename: str):
