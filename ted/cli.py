@@ -18,6 +18,7 @@ from ted.utils import (
     prompt_todo_selection,
     prompt_project_selection,
     new_timestamp,
+    crop_filename,
 )
 
 from ted.vault import Vault
@@ -60,7 +61,7 @@ def newt():
         _id = f"{project.shorthand}{next_id:03d}"
     else:
         _id = f"T{next_id:05d}"
-    filename = f"{_id}_{name[:15].lower().replace(' ', '_')}.md"
+    filename = f"{_id}_{crop_filename(name)}.md"
 
     filepath = os.path.join(VAULT.required_dirs["todos"], filename)
 
@@ -99,7 +100,7 @@ def newp():
     shorthand = shorthand.upper()
     creation_timestamp = new_timestamp()
     next_id = VAULT_DATA.get_next_id("projects")
-    _id = f"P{next_id:05d}"
+    _id = f"P{next_id:05d}_{shorthand}_{crop_filename(name)}"
 
     properties = Properties(id=_id, created=creation_timestamp)
     filename = _id + ".md"
