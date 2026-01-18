@@ -60,6 +60,11 @@ def inbox_from_md(file_content: str):
                 metadata[key.strip()] = value.strip()
         else:
             content_lines.append(line)
+    if content_lines and content_lines[0].startswith("# "):
+        title = content_lines[0][2:].strip()
+        content_lines = content_lines[1:]
+    else:
+        title = "Untitled"
 
     content = "\n".join(content_lines).strip()
 
@@ -74,6 +79,7 @@ def inbox_from_md(file_content: str):
         metadata["file"] = file_value
 
     return InboxItem(
+        title=title,
         content=content,
         timestamp=metadata.get("timestamp", ""),
         id=metadata.get("id", ""),
@@ -83,7 +89,8 @@ def inbox_from_md(file_content: str):
 
 
 class InboxItem(BaseModel):
-    content: str
+    title: str
+    content: str = ""
     timestamp: str
     id: str
     photo: str | None = None
@@ -96,8 +103,8 @@ class InboxItem(BaseModel):
 timestamp: {self.timestamp}
 id: {self.id}
 {photo_str}{file_str}---
+# {self.title}
 {self.content}
-
 """
 
 

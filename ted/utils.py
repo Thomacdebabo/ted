@@ -52,3 +52,14 @@ def prompt_todo_selection(todos: list[TodoData]) -> TodoData | None:
         return None
 
     return todos[int(todo_idx)]
+
+def crop_filename(filename: str, max_length: int = 20) -> str:
+    if len(filename) <= max_length:
+        return filename
+    else:
+        split_filename = filename.split(" ")
+        for i in range(1, len(split_filename)):
+            if len("_".join(split_filename[:-i])) <= max_length:
+                return "_".join(split_filename[:-i])
+
+        return filename[:max_length]  # Fallback: return last max_length characters

@@ -22,3 +22,31 @@ uv pip install -e .
 
 ```
 -> ted-dev
+
+# Ted inbox server
+
+The TED Inbox provides a web interface for quickly capturing notes, todos, and ideas.
+
+## How to run TED Inbox
+
+1. **Install dependencies** (if not already done):
+	```bash
+	uv sync
+	source .venv/bin/activate
+	./install.sh
+	```
+
+
+2. **Start the inbox server with Gunicorn (development):**
+	```bash
+	uv run ./ted/app.py
+	```
+	By default, the server will run on http://0.0.0.0:5000
+
+3. **Open your browser** and go to:
+	```
+	http://localhost:5000
+	```
+	to access the TED Inbox web interface.
+
+You can now add notes with a required title and optional description, and attach files or photos if needed.

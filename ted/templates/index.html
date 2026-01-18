@@ -172,7 +172,16 @@
     <div class="container">
         <h1>📝 TED Inbox</h1>
         <form action="/add" method="post" enctype="multipart/form-data">
-            <textarea name="item" placeholder="Add your idea, todo, or thought..." required></textarea>
+            <div style="margin-bottom: 20px;">
+                <label for="title" style="display:block;margin-bottom:8px;">Title <span
+                        style="color:red">*</span></label>
+                <input type="text" id="title" name="title" placeholder="Enter note title" required
+                    style="width:100%;padding:12px;font-size:16px;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:8px;margin-bottom:8px;" />
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label for="item" style="display:block;margin-bottom:8px;">Description</label>
+                <textarea name="item" id="item" placeholder="Add your idea, todo, or thought... (optional)"></textarea>
+            </div>
 
             <div class="file-uploads-container">
                 <div class="file-upload">
