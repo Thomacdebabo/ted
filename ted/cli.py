@@ -22,7 +22,6 @@ from ted.utils import (
 )
 
 from ted.vault import Vault
-from pydantic_core import from_json
 
 CONFIG = Config()
 VAULT = Vault(CONFIG)
