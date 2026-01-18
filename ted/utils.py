@@ -17,7 +17,7 @@ def prompt_project_selection(projects: list[ProjectData]):
         return None
     click.echo("Available project files: ")
     for i, project in enumerate(projects):
-        click.echo(f"{i}. {project.shorthand} {project.name}")
+        click.echo(f"{i+1}. {project.shorthand} {project.name}")
 
     project_idx = click.prompt(
         "Project ID (leave empty for none)", default="", show_default=False
@@ -27,18 +27,17 @@ def prompt_project_selection(projects: list[ProjectData]):
         click.echo("None selected.")
         return None
 
-    if int(project_idx) < 0 or int(project_idx) >= len(projects):
+    if int(project_idx) <= 0 or int(project_idx) > len(projects):
         click.echo("Invalid project selection. Proceeding without a project.")
         return None
-    return projects[int(project_idx)]
-
+    return projects[int(project_idx) - 1]
 
 def prompt_todo_selection(todos: list[TodoData]) -> TodoData | None:
     if not todos:
         return None
     click.echo("Available todo files: ")
     for i, todo in enumerate(todos):
-        click.echo(f"{i}. {todo.name}")
+        click.echo(f"{i+1}. {todo.name}")
     todo_idx = click.prompt(
         "Todo ID (leave empty for none)", default="", show_default=False
     ).strip()
@@ -47,12 +46,11 @@ def prompt_todo_selection(todos: list[TodoData]) -> TodoData | None:
         click.echo("None selected.")
         return None
 
-    if int(todo_idx) < 0 or int(todo_idx) >= len(todos):
+    if int(todo_idx) <= 0 or int(todo_idx) > len(todos):
         click.echo("Invalid todo selection. Proceeding without a todo.")
         return None
 
-    return todos[int(todo_idx)]
-
+    return todos[int(todo_idx) - 1]
 def crop_filename(filename: str, max_length: int = 20) -> str:
     if len(filename) <= max_length:
         return filename

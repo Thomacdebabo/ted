@@ -41,13 +41,13 @@ def new():
         "What would you like to create? (t)odo, (p)roject, (r)eference",
         type=click.Choice(["t", "p", "r"]),
     )
-    choices = {"t": new_t, "p": new_p, "r": new_ref}
+    choices = {"t": newt, "p": newp, "r": newr}
     ctx = click.get_current_context()
     ctx.invoke(choices[choice])
 
 
 @cli.command()
-def new_t():
+def newt():
     name = click.prompt("Enter the new name", type=str)
     goal = click.prompt("Enter passing criteria", type=str)
     next = click.prompt("Next task to do", type=str)
@@ -83,7 +83,7 @@ def new_t():
 
 
 @cli.command()
-def new_p():
+def newp():
     name = click.prompt("Enter the new project name", type=str)
     description = click.prompt("Enter project description", type=str)
     shorthand = click.prompt(
@@ -115,7 +115,7 @@ def new_p():
 
 
 @cli.command()
-def new_ref():
+def newr():
     type_str = click.prompt(
         "Enter reference type: ",
         type=click.Choice([t.value for t in ReferenceType]),
