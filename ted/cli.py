@@ -251,22 +251,41 @@ def update(todo_id):
 
 @cli.command()
 @click.option("-s", "--show", is_flag=True, help="Show details for each todo")
-def ls(show):
+@click.option("-t", "--tag", is_flag=True, help="Filter todos by tags")
+def ls(show, tag):
     todos = VAULT_DATA.todos
     tag_dict = {}
+    if tag:
+        for todo in todos:
+            tags = todo.tags
+            for tag in tags:
+                t = tag_dict.get(tag, [])
+                t.append(todo)
+                tag_dict[tag] = t
 
-    for todo in todos:
-        tags = todo.tags
-        for tag in tags:
-            t = tag_dict.get(tag, [])
-            t.append(todo)
-            tag_dict[tag] = t
+        for tag, tag_todos in tag_dict.items():
+            click.echo(f"Tag: {tag} - {len(tag_todos)} todos")
+            for todo in tag_todos:
+                status = todo._status().value
+                click.echo(f"  {status} {todo.id}: {todo.name}")
+                if show:
+                    click.echo(str(todo))
+    else:
+        file_paths = []
+        for todo in todos:
+            relative_path = os.path.dirname(
+                os.path.relpath(todo.filepath, Config.TODO_DIR)
+            )
+            file_paths.append((relative_path, todo))
 
-    for tag, tag_todos in tag_dict.items():
-        click.echo(f"Tag: {tag} - {len(tag_todos)} todos")
-        for todo in tag_todos:
+        file_paths.sort(key=lambda x: x[0])
+        last_relative_path = ""
+        for relative_path, todo in file_paths:
+            if relative_path != last_relative_path:
+                click.echo(f"\nDirectory: {relative_path}")
+                last_relative_path = relative_path
             status = todo._status().value
-            click.echo(f"  {status} {todo.id}: {todo.name}")
+            click.echo(f"{status} {todo.id}: {todo.name}")
             if show:
                 click.echo(str(todo))
 
