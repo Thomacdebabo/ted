@@ -27,7 +27,12 @@ uv pip install -e .
 
 The TED Inbox provides a web interface for quickly capturing notes, todos, and ideas.
 
-## How to run TED Inbox
+## Run server (Docker)
+1. ```bash
+	docker build . -t ted
+	docker run -d -p 5000:5000 ted
+	```
+## How to run Dev TED Inbox
 
 1. **Install dependencies** (if not already done):
 	```bash
