@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  ted-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - INBOX_DIR=/home/ted/.ted-server/inbox
+      - UPLOAD_DIR=/home/ted/.ted-server/uploads
+    volumes:
+      - ~/.ted-server:/home/ted/.ted-server
+    container_name: ted-server

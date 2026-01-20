@@ -12,10 +12,19 @@ from ted.data_types import InboxItem, inbox_from_md
 
 app = Flask(__name__)
 
+INBOX_DIR = os.environ.get("TED_INBOX_DIR")
+UPLOAD_DIR = os.environ.get("TED_UPLOAD_DIR")
 
-INBOX_DIR = os.path.expanduser("~/.ted-server/inbox")
-UPLOAD_DIR = os.path.expanduser("~/.ted-server/uploads")
+if not INBOX_DIR:
+    INBOX_DIR = os.path.expanduser("~/.ted-server/inbox")
+os.makedirs(INBOX_DIR, exist_ok=True)
+
+if not UPLOAD_DIR:
+    UPLOAD_DIR = os.path.expanduser("~/.ted-server/uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+print(f"Using INBOX_DIR: {INBOX_DIR}")
+print(f"Using UPLOAD_DIR: {UPLOAD_DIR}")
 
 
 @app.route("/", methods=["GET"])
