@@ -198,8 +198,9 @@ def block():
     default=None,
 )
 def update(todo_id):
+    todos = VAULT_DATA.todos
     if todo_id is None:
-        todo_id = prompt_todo_selection(Config.TODO_DIR)[0]
+        todo_id = prompt_todo_selection(todos)[0]
 
     if todo_id is None:
         click.echo("No todo selected for update.")

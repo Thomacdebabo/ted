@@ -220,6 +220,7 @@ class TodoData(BaseModel):
     tasks: list[Task] = []
     properties: Properties
     info: list[str] = []
+    note: str = ""
 
     def __str__(self) -> str:
         _str = ""
@@ -227,6 +228,7 @@ class TodoData(BaseModel):
         _str += string2md(self.name, self.goal)
         _str += tasks2md("tasks", self.tasks)
         _str += list2md("info", self.info)
+        _str += string2md("note", self.note)
         return _str
 
     @property
@@ -389,7 +391,7 @@ def from_md_file(filepath: str) -> TodoData | None:
 
     parts = text.split("# ")
     if parts[0] != "":
-        try: 
+        try:
             properties = parse_properties(parts[0])
         except Exception as e:
             print(f"Error parsing properties in todo file {filepath}: {e}")
@@ -404,9 +406,11 @@ def from_md_file(filepath: str) -> TodoData | None:
         info = []
     else:
         info = [p[2:] for p in parts[3].split("\n") if p.startswith("- ")]
-
+    note = "#".join(parts[4:]).strip() if len(parts) > 4 else ""
+    if note.startswith("note"):
+        note = note[5:].strip()
     filename = os.path.basename(filepath)
-    try: 
+    try:
         return TodoData(
             name=name,
             goal=goal.strip(),
@@ -415,11 +419,11 @@ def from_md_file(filepath: str) -> TodoData | None:
             tasks=tasks,
             properties=properties,
             info=info,
+            note=note,
         )
     except Exception as e:
         print(f"Error parsing todo file {filepath}: {e}")
         return None
-
 
 
 def ref_from_md_file(filename: str):

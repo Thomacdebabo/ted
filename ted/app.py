@@ -42,7 +42,7 @@ def add():
     # Generate randomized ID
     timestamp = new_timestamp()
 
-    cropped_title = crop_filename(title, max_length=12)
+    cropped_title = crop_filename(title, max_length=32)
     inbox_id = f"{timestamp}_{cropped_title}"
     photo_filename = None
     file_filename = None
