@@ -388,29 +388,29 @@ def parse_properties(prop_str: str) -> Properties:
 def from_md_file(filepath: str) -> TodoData | None:
     with open(filepath, "r") as f:
         text = f.read()
-
-    parts = text.split("# ")
-    if parts[0] != "":
-        try:
-            properties = parse_properties(parts[0])
-        except Exception as e:
-            print(f"Error parsing properties in todo file {filepath}: {e}")
-            return None
-    else:
-        raise ValueError("Invalid todo file format: missing properties section.")
-    name, goal = parts[1].split("\n")[:2]
-
-    tasks = [Task.from_md(p) for p in parts[2].split("\n") if p.startswith("- [")]
-
-    if len(parts) < 4:
-        info = []
-    else:
-        info = [p[2:] for p in parts[3].split("\n") if p.startswith("- ")]
-    note = "#".join(parts[4:]).strip() if len(parts) > 4 else ""
-    if note.startswith("note"):
-        note = note[5:].strip()
-    filename = os.path.basename(filepath)
     try:
+        parts = text.split("# ")
+        if parts[0] != "":
+            try:
+                properties = parse_properties(parts[0])
+            except Exception as e:
+                print(f"Error parsing properties in todo file {filepath}: {e}")
+                return None
+        else:
+            raise ValueError("Invalid todo file format: missing properties section.")
+        name, goal = parts[1].split("\n")[:2]
+
+        tasks = [Task.from_md(p) for p in parts[2].split("\n") if p.startswith("- [")]
+
+        if len(parts) < 4:
+            info = []
+        else:
+            info = [p[2:] for p in parts[3].split("\n") if p.startswith("- ")]
+        note = "#".join(parts[4:]).strip() if len(parts) > 4 else ""
+        if note.startswith("note"):
+            note = note[5:].strip()
+        filename = os.path.basename(filepath)
+
         return TodoData(
             name=name,
             goal=goal.strip(),
