@@ -20,6 +20,7 @@ from ted.utils import (
     new_timestamp,
     crop_filename,
 )
+from ted.data_types import from_md_file
 
 from ted.vault import Vault
 
@@ -251,6 +252,60 @@ def update(todo_id):
 
 
 @cli.command()
+@click.argument(
+    "todo_file",
+    required=True,
+    default=None,
+)
+def update_file(todo_file):
+    if not os.path.isfile(todo_file):
+        click.echo(f"File {todo_file} does not exist.")
+        return
+    todo = from_md_file(todo_file)
+
+    if not todo:
+        click.echo(f"Todo with ID {todo_file} not found or invalid.")
+        return
+
+    click.echo(todo.status(verbose=True))
+
+    selection = click.prompt(
+        "Enter task numbers to mark done (space seperated), or leave empty for none",
+        default="",
+        show_default=False,
+    ).strip()
+
+    if selection:
+        try:
+            chosen = {int(s.strip()) for s in selection.split(" ") if s.strip()}
+        except ValueError:
+            click.echo("Invalid input. Please enter numbers separated by spaces.")
+            return
+
+        for num in sorted(chosen, reverse=True):
+            if num < 0 or num > len(todo.tasks):
+                click.echo(f"Ignoring invalid task number: {num}")
+                continue
+            todo.mark_task_done(num)
+
+    next_task = click.prompt(
+        "Next task to do (leave empty for none)", default="", show_default=False
+    ).strip()
+    if next_task:
+        todo.add_task(next_task)
+
+    extra_info = click.prompt(
+        "Additional info to add (leave empty for none)", default="", show_default=False
+    ).strip()
+
+    if extra_info:
+        todo.info.append(extra_info)
+
+    todo.save()
+    click.echo(f"Updated todo {todo.id} and wrote changes to {todo.filepath}")
+
+
+@cli.command()
 @click.option("-s", "--show", is_flag=True, help="Show details for each todo")
 @click.option("-t", "--tag", is_flag=True, help="Filter todos by tags")
 def ls(show, tag):
@@ -319,11 +374,57 @@ def done(todo_id):
 
 
 @cli.command()
+@click.argument("todo_file")
+def done_file(todo_file):
+    if not os.path.isfile(todo_file):
+        click.echo(f"File {todo_file} does not exist.")
+        return
+
+    todo = from_md_file(todo_file)
+
+    if not todo:
+        click.echo(f"Todo with ID {todo.id} not found.")
+        return
+
+    if not todo.is_completed():
+        click.echo(f"Todo {todo.id} is not yet complete.")
+        for i, task in enumerate(todo.tasks):
+            if not task.done:
+                click.echo(f" - Task {i}: {task.description} [NOT DONE]")
+        confirm = click.prompt("y to confirm marking as done", type=str)
+        if confirm.lower() != "y":
+            return
+        todo.mark_all_done()
+
+    todo.properties.completed = new_timestamp()
+
+    todo.write(Config.DONE_DIR)
+
+    os.remove(todo.filepath)
+    click.echo(f"Todo {todo.id} marked as done and moved to done directory.")
+
+
+@cli.command()
 @click.argument("todo_id")
 def show(todo_id):
     todo = VAULT_DATA.find("todos", todo_id)
     if not todo:
         click.echo(f"Todo with ID {todo_id} not found.")
+        return
+    click.echo(str(todo))
+
+
+@cli.command()
+@click.argument("todo_file")
+def show_file(todo_file):
+    if not os.path.isfile(todo_file):
+        click.echo(f"File {todo_file} does not exist.")
+        return
+
+    todo = from_md_file(todo_file)
+
+    if not todo:
+        click.echo(f"Todo with ID {todo_file} not found.")
         return
     click.echo(str(todo))
 

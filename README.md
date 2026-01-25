@@ -22,6 +22,38 @@ uv pip install -e .
 
 ```
 -> ted-dev
+# aliases
+```bash
+# find .md files
+find ~/.ted/**/*.md | fzf
+
+
+find ~/.ted/**/*.md | xargs -n1 basename | fzf
+
+find ~/.ted -name "*.md" | sed "s|^$HOME/.ted/||" | fzf
+
+# for bashrc
+fted() {
+    local selected
+    selected=$(find $HOME/.ted/todos/ -name "*.md" | sed "s|^$HOME/.ted/||" | fzf)
+    
+    if [[ -n "$selected" ]]; then
+        echo "$HOME/.ted/$selected"
+    fi
+}
+
+upted() {
+	ted update-file $(fted)
+}
+
+donted() {
+	ted done-file $(fted)
+}
+sted() {
+	ted show-file $(fted)
+}
+
+```
 
 # Ted inbox server
 
