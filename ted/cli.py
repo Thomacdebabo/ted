@@ -428,6 +428,18 @@ def show_file(todo_file):
         return
     click.echo(str(todo))
 
+@cli.command()
+@click.argument("todo_file")
+def id(todo_file):
+    if not os.path.isfile(todo_file):
+        return
+
+    todo = from_md_file(todo_file)
+
+    if not todo:
+        return
+    click.echo(str(todo.id))
+
 
 @cli.command()
 def status():

@@ -53,6 +53,10 @@ sted() {
 	ted show-file $(fted)
 }
 
+fzit() {
+  zit start $(ted id $(fted))
+}
+
 ```
 
 # Ted inbox server
