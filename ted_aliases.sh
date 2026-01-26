@@ -38,6 +38,39 @@ fzit() {
   zit start $(ted-id)
 }
 
+_find-next-id() {
+    local dir=$1 # Use the provided directory
+    local largest_id
+
+    if [[ -z "$dir" ]]; then
+        echo "Error: No directory provided."
+        return 1
+    fi
+
+    largest_id=$(find "$dir" -name "*.md" 2>/dev/null | \
+        grep -oE '[A-Z]+[0-9]+' | \
+        grep -oE '[0-9]+' | \
+        sed 's/^0*//' | \
+        sort -n | \
+        tail -1)
+
+    if [[ -n "$largest_id" ]]; then
+        echo $((largest_id + 1))
+    else
+        echo 0
+    fi
+}
+
+next-todo-id() {
+    local next_todo=$(_find-next-id "$HOME/.ted/todos/")
+    local next_done=$(_find-next-id "$HOME/.ted/done/") 
+    echo $(( next_todo > next_done ? next_todo : next_done )) 
+}
+
+next-project-id() {
+    _find-next-id "$HOME/.ted/projects/"
+}
+
 
 #alias tedit="code ~/.ted &"
 

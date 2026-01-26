@@ -26,7 +26,7 @@ from ted.vault import Vault
 
 CONFIG = Config()
 VAULT = Vault(CONFIG)
-VAULT_DATA = VAULT.load_vault_data()
+
 
 
 @click.group()
@@ -49,6 +49,7 @@ def new():
 
 @cli.command()
 def newt():
+    VAULT_DATA = VAULT.load_vault_data()
     name = click.prompt("Enter the new name", type=str)
     goal = click.prompt("Enter passing criteria", type=str)
     next = click.prompt("Next task to do", type=str)
@@ -85,6 +86,7 @@ def newt():
 
 @cli.command()
 def newp():
+    VAULT_DATA = VAULT.load_vault_data()
     name = click.prompt("Enter the new project name", type=str)
     description = click.prompt("Enter project description", type=str)
     shorthand = click.prompt(
@@ -117,6 +119,7 @@ def newp():
 
 @cli.command()
 def newr():
+    VAULT_DATA = VAULT.load_vault_data()
     type_str = click.prompt(
         "Enter reference type: ",
         type=click.Choice([t.value for t in ReferenceType]),
@@ -170,6 +173,7 @@ def newr():
 
 @cli.command()
 def block():
+    VAULT_DATA = VAULT.load_vault_data()
     click.echo("Select the todo to be blocked:")
     todo = prompt_todo_selection(VAULT_DATA.todos)
     if not todo:
@@ -199,6 +203,7 @@ def block():
     default=None,
 )
 def update(todo_id):
+    VAULT_DATA = VAULT.load_vault_data()
     todos = VAULT_DATA.todos
     if todo_id is None:
         todo_id = prompt_todo_selection(todos)[0]
@@ -309,6 +314,7 @@ def update_file(todo_file):
 @click.option("-s", "--show", is_flag=True, help="Show details for each todo")
 @click.option("-t", "--tag", is_flag=True, help="Filter todos by tags")
 def ls(show, tag):
+    VAULT_DATA = VAULT.load_vault_data()
     todos = VAULT_DATA.todos
     tag_dict = {}
     if tag:
@@ -349,6 +355,7 @@ def ls(show, tag):
 @cli.command()
 @click.argument("todo_id")
 def done(todo_id):
+    VAULT_DATA = VAULT.load_vault_data()
     todo = VAULT_DATA.find("todos", todo_id)
 
     if not todo:
@@ -407,6 +414,7 @@ def done_file(todo_file):
 @cli.command()
 @click.argument("todo_id")
 def show(todo_id):
+    VAULT_DATA = VAULT.load_vault_data()
     todo = VAULT_DATA.find("todos", todo_id)
     if not todo:
         click.echo(f"Todo with ID {todo_id} not found.")
