@@ -143,6 +143,7 @@ class Properties(BaseModel):
     tags: list[str] = []
     others: dict = {}
     blocked_by: list[str] | None = None
+    info: str = ""
 
     def __str__(self):
         props = {
@@ -151,6 +152,7 @@ class Properties(BaseModel):
             "completed": self.completed,
             "project_id": f"[[{self.project_id}]]" if self.project_id else None,
             "tags": self.tags,
+            "info": self.info,
         }
         if self.blocked_by is not None:
             props["blocked_by"] = [f"[[{item}]]" for item in self.blocked_by]

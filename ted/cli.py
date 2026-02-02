@@ -20,13 +20,12 @@ from ted.utils import (
     new_timestamp,
     crop_filename,
 )
-from ted.data_types import from_md_file
+from ted.data_types import from_md_file, proj_from_md_file
 
 from ted.vault import Vault
 
 CONFIG = Config()
 VAULT = Vault(CONFIG)
-
 
 
 @click.group()
@@ -314,6 +313,39 @@ def update_file(todo_file):
 
 
 @cli.command()
+@click.argument(
+    "todo_file",
+    required=True,
+    default=None,
+)
+def to_zit(todo_file):
+    if not os.path.isfile(todo_file):
+        click.echo(f"File {todo_file} does not exist.")
+        return
+    todo = from_md_file(todo_file)
+
+    if not todo:
+        click.echo(f"Todo with ID {todo_file} not found or invalid.")
+        return
+
+    project_id = todo.properties.project_id or None
+    project = None
+    project_string = project_id
+    if project_id:
+        project = proj_from_md_file(
+            os.path.join(Config.PROJECTS_DIR, f"{project_id}.md")
+        )
+        if project:
+            project_string = f"{project.shorthand} - {project.name}"
+
+    todo_name = todo.name
+    todo_info = todo.properties.info if todo.properties.info else ""
+
+    opt_string = f' "{project_string}" -s "{todo_name.strip()}" -n "{todo_info}"'
+    click.echo(opt_string)
+
+
+@cli.command()
 @click.option("-s", "--show", is_flag=True, help="Show details for each todo")
 @click.option("-t", "--tag", is_flag=True, help="Filter todos by tags")
 def ls(show, tag):
@@ -449,6 +481,7 @@ def show_file(todo_file):
         click.echo(f"Todo with ID {todo_file} not found.")
         return
     click.echo(str(todo))
+
 
 @cli.command()
 @click.argument(

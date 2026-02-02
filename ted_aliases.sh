@@ -38,6 +38,10 @@ fzit() {
   zit start $(ted-id)
 }
 
+zted() {
+   ted to-zit $(fted) | xargs zit ted-start
+}
+
 _find-next-id() {
     local dir=$1 # Use the provided directory
     local largest_id
