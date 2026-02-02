@@ -263,6 +263,9 @@ def update(todo_id):
     default=None,
 )
 def update_file(todo_file):
+    if not todo_file:
+        click.echo("No todo file specified for update.")
+        return
     if not os.path.isfile(todo_file):
         click.echo(f"File {todo_file} does not exist.")
         return
@@ -381,16 +384,21 @@ def done(todo_id):
 
 
 @cli.command()
-@click.argument("todo_file")
+@click.argument(
+    "todo_file",
+    required=True,
+    default=None,
+)
 def done_file(todo_file):
+    if not todo_file:
+        click.echo("No todo file specified for update.")
     if not os.path.isfile(todo_file):
         click.echo(f"File {todo_file} does not exist.")
         return
 
     todo = from_md_file(todo_file)
-
     if not todo:
-        click.echo(f"Todo with ID {todo.id} not found.")
+        click.echo(f"{todo_file} not a valid ted file")
         return
 
     if not todo.is_completed():
@@ -423,8 +431,14 @@ def show(todo_id):
 
 
 @cli.command()
-@click.argument("todo_file")
+@click.argument(
+    "todo_file",
+    required=True,
+    default=None,
+)
 def show_file(todo_file):
+    if not todo_file:
+        click.echo("No todo file specified for update.")
     if not os.path.isfile(todo_file):
         click.echo(f"File {todo_file} does not exist.")
         return
@@ -437,8 +451,14 @@ def show_file(todo_file):
     click.echo(str(todo))
 
 @cli.command()
-@click.argument("todo_file")
+@click.argument(
+    "todo_file",
+    required=True,
+    default=None,
+)
 def id(todo_file):
+    if not todo_file:
+        return
     if not os.path.isfile(todo_file):
         return
 
