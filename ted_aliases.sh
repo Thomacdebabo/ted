@@ -1,5 +1,11 @@
 alias tedit="obsidian://open?vault=.ted &"
 
+# Source ted-bash functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/ted-bash/to-zit.sh" ]]; then
+    source "$SCRIPT_DIR/ted-bash/to-zit.sh"
+fi
+
 fted() {
     local selected
     selected=$(find $HOME/.ted/todos/ -name "*.md" | sed "s|^$HOME/.ted/||" | fzf --preview="bat --color=always $HOME/.ted/{}")
@@ -10,6 +16,15 @@ fted() {
     fi
 }
 
+ftedproj() {
+    local selected
+    selected=$(find $HOME/.ted/projects/ -name "*.md" | sed "s|^$HOME/.ted/projects||" | fzf --preview="bat --color=always $HOME/.ted/{}")
+
+    
+    if [[ -n "$selected" ]]; then
+        echo "$HOME/.ted/projects/$selected"
+    fi
+}
 nvted() {
   nvim $(fted)
 }
@@ -39,7 +54,7 @@ fzit() {
 }
 
 zted() {
-   ted to-zit $(fted) | xargs zit ted-start
+   ted-to-zit $(fted) | xargs zit ted-start
 }
 
 _find-next-id() {
