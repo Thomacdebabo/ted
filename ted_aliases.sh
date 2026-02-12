@@ -54,7 +54,11 @@ fzit() {
 }
 
 zted() {
-   ted-to-zit $(fted) | xargs zit ted-start
+  local time_flag=""
+  if [[ -n "$1" ]]; then
+    time_flag="-t $1"
+  fi
+  ted-to-zit "$(fted)" | xargs -I{} zit ted-start {} $time_flag
 }
 
 _find-next-id() {
