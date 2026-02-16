@@ -25,14 +25,10 @@ ftedproj() {
         echo "$HOME/.ted/projects/$selected"
     fi
 }
-nvted() {
-  nvim $(fted)
-}
 
 tedc () {
   code $(fted)
 }
-
 
 upted() {
 	ted update-file $(fted)
@@ -58,7 +54,7 @@ zted() {
   if [[ -n "$1" ]]; then
     time_flag="-t $1"
   fi
-  ted-to-zit "$(fted)" | xargs -I{} zit ted-start {} $time_flag
+  eval "zit ted-start $(ted-to-zit $(fted)) $time_flag"
 }
 
 _find-next-id() {
