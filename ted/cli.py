@@ -44,7 +44,42 @@ def new():
     choices = {"t": newt, "p": newp, "r": newr}
     ctx = click.get_current_context()
     ctx.invoke(choices[choice])
+    
+@cli.command()
+@click.argument("name")
+@click.argument("goal")
+@click.argument("tasks")
+@click.option("--project", "-p", help="Project ID to associate with this task")
+def new_task(name: str, goal: str, tasks: str, project=None):
+    """Create a new todo task."""
+    VAULT_DATA = VAULT.load_vault_data()
+    creation_timestamp = new_timestamp()
+    next_id = VAULT_DATA.get_next_id("todos")
+    project = proj_from_md_file(os.path.join(Config.PROJECTS_DIR, f"{project}.md")) if project else None
+    if project and project.shorthand:
+        _id = f"{project.shorthand}{next_id:03d}"
+    else:
+        _id = f"T{next_id:05d}"
+    filename = f"{_id}_{crop_filename(name)}.md"
 
+    filepath = os.path.join(VAULT.required_dirs["todos"], filename)
+
+    properties = Properties(
+        created=creation_timestamp,
+        id=_id,
+        project_id=project.id if project else None,
+    )
+    tasks_list = ",".split(tasks)
+    todo_tasks = [Task(done=False, description=t.strip()) for t in tasks_list]
+    todo = TodoData(
+        name=name,
+        goal=goal,
+        tasks=todo_tasks,
+        properties=properties,
+        filename=filename,
+        filepath=filepath,
+    )
+    todo.write(CONFIG.TODO_DIR)
 
 @cli.command()
 def newt():
@@ -339,9 +374,9 @@ def to_zit(todo_file):
             project_string = f"{project.shorthand} - {project.name}"
 
     todo_name = todo.name
-    todo_info = todo.properties.info if todo.properties.info else ""
+    todo_info = todo.properties.info + ": " if todo.properties.info else "???: "
 
-    opt_string = f' "{project_string}" -s "{todo_name.strip()}" -n "{todo_info}"'
+    opt_string = f' "{project_string}" -s "{todo_info}{todo_name.strip()}" -n "{todo_name.strip()}"'
     click.echo(opt_string)
 
 
