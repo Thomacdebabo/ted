@@ -9,7 +9,7 @@ from ted.data_types import (
 
 
 def new_timestamp():
-    return datetime.now().strftime("%m-%d-%Y_%H:%M:%S")
+    return datetime.now().strftime("%m-%d-%Y_%H_%M_%S")
 
 
 def prompt_project_selection(projects: list[ProjectData]):
