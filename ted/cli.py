@@ -587,6 +587,7 @@ def inbox():
     for item in items:
         filename, content = item["filename"], item["content"]
         filepath = os.path.join(inbox_dir, filename)
+        filepath = filepath.replace(":", "_")  # Replace colons to avoid issues on some filesystems
         inbox_item = InboxItem.model_validate_json(content)
 
         # Download photo if it exists
